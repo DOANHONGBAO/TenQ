@@ -4,12 +4,12 @@ Daily AI 10-questions deduction game. Zero-login, single-player: every player ge
 
 ## Read before changing code
 
-1. `docs/product-spec.md` — product rules; the only source of gameplay requirements. If a rule is missing, ask the owner — do not invent it.
-2. `docs/architecture.md` — components and data flow
+1. `docs/requirements.md` — product rules; the only source of gameplay requirements. If a rule is missing, ask the owner — do not invent it.
+2. `docs/architecture.md`, `docs/api-contract.md`, `docs/data-model.md`, `docs/security-threat-model.md` — design; code must match them or update them in the same PR
 3. `docs/decisions/` — ADRs; propose a new ADR instead of silently contradicting one
 4. `docs/engineering-conventions.md` — code style, structure, errors, logging, testing, security
 5. `docs/development-workflow.md` — task loop, branching, commits, PRs
-6. `docs/progress.md` — current status and next step
+6. `docs/roadmap.md` and `docs/progress.md` — phase scope, acceptance criteria, current status. Work one phase at a time; never start the next phase without owner approval.
 
 ## Stack
 

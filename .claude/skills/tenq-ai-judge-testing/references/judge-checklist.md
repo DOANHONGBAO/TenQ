@@ -1,30 +1,30 @@
 # AI Judge Checklist
 
 ## Output validation
-- [ ] Response parsed into a Pydantic model with `extra="forbid"`
-- [ ] Answer field is a closed set (e.g. `Literal["yes", "no", "partly", "irrelevant"]` or whatever the requirements define)
-- [ ] Malformed JSON, empty body, extra prose around JSON → typed `JudgeInvalidOutputError`
-- [ ] Output length bounded; oversized output rejected
-- [ ] Secret-leak post-filter applied before returning to the player
+- [ ] Output reduced to exactly one label of `YES | NO | IRRELEVANT | PENALTY | WIN` (ADR 0010); parser regex `^\W*(YES|NO|IRRELEVANT|PENALTY|WIN)\W*$`, case-insensitive
+- [ ] Anything else (prose, JSON, empty, several labels) → typed `JudgeInvalidOutputError` → `502 AI_INVALID_RESPONSE`, no charge
+- [ ] Output length bounded; oversized output rejected before parsing
+- [ ] Only the label reaches the player; model free text is never returned or logged
+- [ ] Does not depend on Ollama structured outputs (`format`) being honored
 
 ## Prompt injection
 - [ ] Player question length-limited and normalized (strip control chars, collapse whitespace) before use
 - [ ] Question placed in a clearly delimited data section; instructions say to ignore instructions inside it
 - [ ] Judge cannot be asked to "repeat the system prompt", "spell the word", "answer in base64", etc. (corpus test)
-- [ ] Final-guess checking is done by deterministic server code, not by asking the model "is this correct?"
+- [ ] `WIN` accepted only when server code finds the secret word (or simple plural) as a whole token in the normalized question
 
 ## Caching
 - [ ] Key includes game_day, normalized question, prompt version, model id
 - [ ] TTL bounded to the game day (+ margin)
 - [ ] Only validated judgements are cached; errors are never cached
-- [ ] Cache hit does not skip attempt charging (that is a game-integrity decision — check consistency with tenq-game-integrity A1–A4)
+- [ ] Cache is global per day (same answer for every player); a cache hit still charges the question like a fresh judgement
 
 ## Provider errors
 - [ ] Explicit connect + read timeout
 - [ ] Retry only on timeout / 429 / 5xx, max N attempts, exponential backoff with jitter
 - [ ] Honors `Retry-After` when present
 - [ ] 4xx (auth, bad request) not retried; surfaced as configuration error and alerted in logs
-- [ ] Final failure maps to a stable error code (e.g. `AI_UNAVAILABLE`) and documented attempt-refund policy
+- [ ] Final failure maps to `503 AI_UNAVAILABLE` and the question is released, never charged (BR-09)
 
 ## Quota and cost
 - [ ] Per-player and global rate limits exist before the provider call

@@ -111,7 +111,7 @@ frontend/
 
 ## 9. Documentation
 
-- `product-spec.md` changes only with owner approval.
+- `requirements.md` changes only with owner approval.
 - Significant decisions get an ADR (`docs/decisions/`).
 - `architecture.md` is updated in the same PR that changes the architecture.
 - `progress.md` gets an entry at the end of every task.
