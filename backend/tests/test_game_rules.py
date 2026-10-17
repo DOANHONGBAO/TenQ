@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.session import SessionCodec
+from app.core.session import Identifiers
 from app.models.game import (
     Answer,
     GameStatus,
@@ -80,20 +80,8 @@ def test_display_name_is_anonymous() -> None:
     assert display_name_for("7f3a9b" + "0" * 26) == "Player-7F3A9B"
 
 
-def test_session_cookie_roundtrip_and_tampering() -> None:
-    codec = SessionCodec(bytes(range(32)))
-    value, player_id = codec.issue(1_792_000_000)
-
-    assert codec.verify(value) == player_id
-    assert codec.verify(value[:-1] + ("A" if value[-1] != "A" else "B")) is None
-    assert codec.verify("x.y.z") is None
-    assert codec.verify(None) is None
-    other = SessionCodec(bytes(range(1, 33)))
-    assert other.verify(value) is None
-
-
 def test_player_hash_is_keyed_and_stable() -> None:
-    codec = SessionCodec(bytes(range(32)))
-    assert codec.player_hash("abc") == codec.player_hash("abc")
-    assert codec.player_hash("abc") != SessionCodec(bytes(range(1, 33))).player_hash("abc")
-    assert len(codec.player_hash("abc")) == 32
+    ids = Identifiers(bytes(range(32)))
+    assert ids.player_hash("abc") == ids.player_hash("abc")
+    assert ids.player_hash("abc") != Identifiers(bytes(range(1, 33))).player_hash("abc")
+    assert len(ids.player_hash("abc")) == 32

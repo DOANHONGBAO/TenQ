@@ -2,7 +2,7 @@
 
 Daily AI 10-questions deduction game. Zero login, single player: everyone gets the same secret each game day and at most 10 questions answered by an AI judge.
 
-> Status: Phase 05 (Ollama AI judge). The judge runs against a built-in mock by default; the real Ollama Cloud API is opt-in. See [docs/roadmap.md](docs/roadmap.md).
+> Status: Phase 06 (anonymous identity and anti-abuse). Sessions start with an invisible Cloudflare Turnstile check; local development uses Cloudflare's official test keys. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Repository layout
 
@@ -50,19 +50,23 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
                                 # paste into .env as TENQ_WORD_SELECTION_KEY=...
 python3 -c "import secrets; print(secrets.token_hex(32))"
                                 # run again, paste as TENQ_SESSION_SECRET=... (must differ)
+python3 -c "import secrets; print(secrets.token_hex(32))"
+                                # and once more for TENQ_PLAYER_HASH_KEY=... (must differ)
 uv run python -m app.scripts.seed_words --dev                # fake words, or:
 uv run python -m app.scripts.seed_words secrets/words.json   # private curated list
 uv run uvicorn app.main:create_app --factory --reload
 ```
 
-Check: `curl http://127.0.0.1:8000/api/v1/health` returns `{"status":"ok"}`, and `curl http://127.0.0.1:8000/api/v1/puzzles/today` returns today's UTC date and reset time (never the word). Try a question:
+Check: `curl http://127.0.0.1:8000/api/v1/health` returns `{"status":"ok"}`, and `curl http://127.0.0.1:8000/api/v1/puzzles/today` returns today's UTC date and reset time (never the word).
+
+Players need a session first: `POST /api/v1/session` with a Turnstile token. The frontend does this automatically with Cloudflare's invisible test key (`1x00000000000000000000BB`) and the backend's test secret from `.env.example`. With `curl`, the test secret accepts any token, but each token string can be used only once:
 
 ```bash
-curl -c /tmp/tenq.cookies -b /tmp/tenq.cookies http://127.0.0.1:8000/api/v1/game/today          # starts an anonymous session
+curl -c /tmp/tenq.cookies -b /tmp/tenq.cookies -H 'Content-Type: application/json' \
+     -d '{"turnstile_token": "XXXX.DUMMY.TOKEN.XXXX"}' http://127.0.0.1:8000/api/v1/session
 curl -c /tmp/tenq.cookies -b /tmp/tenq.cookies -H "Idempotency-Key: $(python3 -c 'import uuid; print(uuid.uuid4())')" \
      -H 'Content-Type: application/json' -d '{"question": "Is it alive?"}' \
      http://127.0.0.1:8000/api/v1/game/today/questions
-curl http://127.0.0.1:8000/api/v1/leaderboard/today
 ```
 
 The curated word list (`backend/secrets/words.json`), the selection key, and the SQLite file (`backend/data/`) are secret and git-ignored. Keep an encrypted backup of the key and the list: losing the key changes every future, not yet pinned day. Interactive docs: http://127.0.0.1:8000/api/docs (disabled in production).

@@ -31,3 +31,4 @@ An ADR records one significant decision: its context, the choice, and the conseq
 | [0011](0011-free-tier-constraints.md) | Operating within free tiers and degrading gracefully | Proposed |
 | [0012](0012-yearly-keyed-word-schedule.md) | Keyed yearly word schedule with an explicit leap-day rule | Proposed |
 | [0013](0013-hybrid-judge-json-contract.md) | Hybrid judge pipeline with a JSON output contract | Proposed |
+| [0014](0014-proxy-trust-and-session-hardening.md) | Proxy trust, session hardening, and anti-abuse limits | Proposed |

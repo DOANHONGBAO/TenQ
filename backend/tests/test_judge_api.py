@@ -13,6 +13,8 @@ from app.integrations import ollama_mock
 from app.main import create_app
 from app.models.clock import FixedClock
 from app.repositories.word_repository import SqliteWordRepository
+from tests.conftest import start_session
+from tests.turnstile_mock import TurnstileMock
 
 pytestmark = pytest.mark.anyio
 
@@ -32,13 +34,14 @@ async def mock_api(
     import app.main as main_module
 
     monkeypatch.setattr(main_module, "MockOllamaProvider", lambda: provider)
-    app: FastAPI = create_app(settings, clock=clock)
+    turnstile = TurnstileMock(clock)
+    app: FastAPI = create_app(settings, clock=clock, turnstile_transport=turnstile.transport())
     transport = ASGITransport(app=app)
     async with (
         app.router.lifespan_context(app),
         AsyncClient(transport=transport, base_url="http://t") as client,
     ):
-        await client.get("/api/v1/game/today")
+        await start_session(client)
         yield client, provider
 
 

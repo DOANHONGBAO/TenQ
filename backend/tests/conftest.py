@@ -1,4 +1,5 @@
 import os
+import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,11 +25,16 @@ from app.repositories.word_repository import SqliteWordRepository
 from app.scripts.seed_words import dev_entries
 from app.services.daily_word_service import DailyWordService
 from app.services.game_service import GameService
+from tests.turnstile_mock import TurnstileMock
 
 # Fixed, obviously non-production key: tests must be deterministic and never need a real secret.
 TEST_KEY_HEX = "00112233445566778899aabbccddeeff" * 2
 TEST_KEY = bytes.fromhex(TEST_KEY_HEX)
 TEST_SESSION_HEX = "ffeeddccbbaa99887766554433221100" * 2
+TEST_PLAYER_HASH_HEX = "0123456789abcdef" * 4
+TURNSTILE_TEST_SECRET = "1x0000000000000000000000000000000AA"  # Cloudflare dummy secret
+# The API tests talk to TurnstileMock, so they use a non-dummy secret to keep the replay guard on.
+TURNSTILE_MOCK_SECRET = "mock-turnstile-secret"
 # A dedicated database on a throwaway Redis (see README). It is flushed before every test.
 TEST_REDIS_URL = os.environ.get("TENQ_TEST_REDIS_URL", "redis://127.0.0.1:6390/15")
 LEASE_MS = 30_000
@@ -73,6 +79,8 @@ def settings(db_path: Path) -> Settings:
         database_path=db_path,
         word_selection_key=SecretStr(TEST_KEY_HEX),
         session_secret=SecretStr(TEST_SESSION_HEX),
+        player_hash_key=SecretStr(TEST_PLAYER_HASH_HEX),
+        turnstile_secret_key=SecretStr(TURNSTILE_MOCK_SECRET),
         redis_url=SecretStr(TEST_REDIS_URL),
     )
 
@@ -132,16 +140,30 @@ def game_service(
 
 
 @pytest.fixture
+def turnstile(clock: FixedClock) -> TurnstileMock:
+    return TurnstileMock(clock)
+
+
+async def start_session(client: AsyncClient) -> None:
+    """Create an anonymous session the way the SPA does (fresh Turnstile token each time)."""
+    response = await client.post("/api/v1/session", json={"turnstile_token": uuid.uuid4().hex})
+    assert response.status_code in (200, 201), response.text
+
+
+@pytest.fixture
 async def api(
     settings: Settings,
     repository: SqliteWordRepository,
     clock: FixedClock,
     judge: FakeAIJudge,
     redis: Redis,
+    turnstile: TurnstileMock,
 ) -> AsyncIterator[AsyncClient]:
     """Async HTTP client against the real app (lifespan included), Redis, and the fake judge."""
-    app: FastAPI = create_app(settings, clock=clock, judge=judge)
+    app: FastAPI = create_app(
+        settings, clock=clock, judge=judge, turnstile_transport=turnstile.transport()
+    )
     async with app.router.lifespan_context(app):
-        transport = ASGITransport(app=app)
+        transport = ASGITransport(app=app, client=("203.0.113.10", 50000))
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             yield client

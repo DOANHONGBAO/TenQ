@@ -23,3 +23,17 @@ export async function getJson(path: string, signal?: AbortSignal): Promise<unkno
   }
   return response.json() as Promise<unknown>
 }
+
+/** POST JSON to the API and return the parsed body (credentials included for the cookie). */
+export async function postJson(path: string, body: unknown): Promise<unknown> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw new HttpError(response.status, `Request failed with status ${String(response.status)}`)
+  }
+  return response.json() as Promise<unknown>
+}

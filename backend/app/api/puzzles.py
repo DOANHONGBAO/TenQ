@@ -3,10 +3,10 @@ from datetime import date
 from fastapi import APIRouter, Response
 from starlette.concurrency import run_in_threadpool
 
-from app.api.deps import DailyWordServiceDep
+from app.api.deps import DailyWordServiceDep, ReadLimited
 from app.schemas.puzzle import PuzzleAnswerResponse, PuzzleTodayResponse
 
-router = APIRouter(prefix="/puzzles", tags=["puzzles"])
+router = APIRouter(prefix="/puzzles", tags=["puzzles"], dependencies=[ReadLimited])
 
 
 @router.get("/today", response_model=PuzzleTodayResponse)

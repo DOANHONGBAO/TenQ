@@ -241,17 +241,20 @@ flowchart TB
 | Vercel Hobby | Non-commercial only; 100 GB Fast Data Transfer, 10 GB Fast Origin Transfer per month | API responses are small (about 1 KB) | No ads or payments; responses `Cache-Control: no-store` |
 | Cloudflare Turnstile free | Unlimited challenges, 20 widgets, 10 hostnames per widget | None at our scale | Fail closed on session creation if siteverify is down |
 
-## 9. Rate limiting
+## 9. Rate limiting and proxy trust
 
-| Layer | Key | Limit (default) | Purpose |
-|-------|-----|-----------------|---------|
-| Nginx `limit_req` | `$http_x_real_ip` (trusted only after origin secret check) | 5 r/s, burst 10 | Cheap flood protection |
-| API: session creation | IP hash | 5 per hour | Limits identity farming |
-| API: questions | IP hash | 60 per hour | Limits farming across many cookies |
-| API: questions | player | 1 in flight, 10 per day | Game rule |
-| API: AI calls | global | daily budget (config) | Protects free quota |
+| Layer | Key | Limit (default, configurable) | Purpose |
+|-------|-----|-------------------------------|---------|
+| Nginx `limit_req` | `$http_x_real_ip` (only after the origin secret check) | 5 r/s, burst 10 | Cheap flood protection (Phase 10) |
+| API: session creation | IP hash / device hash (IP + User-Agent) | 30 / 10 per hour | Limits identity farming; NAT-friendly |
+| API: questions | player hash / IP hash | 6 / 40 per minute | Stops scripted flooding |
+| API: questions in flight | IP hash | 4 concurrent | Caps parallel load from one network |
+| API: questions in flight | player | 1 (Lua lease) | Game rule |
+| API: reads | IP hash | 180 per minute | Flood protection |
+| API: AI calls | global | hourly and daily budget | Protects free quota |
+| API: body size | request | 4 KB | Memory and parser abuse |
 
-Behind Vercel, Nginx's `$remote_addr` is a Vercel edge address, so limits must use the forwarded client IP. Rate limit counters are fixed-window Redis counters updated inside the same `reserve` script.
+All limits are fixed-window Redis counters checked before `reserve`, so a blocked request is never charged. IPs are used only as daily keyed hashes. The client IP comes from `x-real-ip` only when the request carries a valid `x-origin-secret` (set by a Vercel routes transform); otherwise the TCP peer address is used, and in production such requests are refused with `403 FORBIDDEN_ORIGIN` ([ADR 0014](decisions/0014-proxy-trust-and-session-hardening.md)).
 
 ## 10. Persistence and backup
 

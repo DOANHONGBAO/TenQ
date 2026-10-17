@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TenQ.ai privacy</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <h1>How TenQ.ai uses data</h1>
+    <ul>
+      <li><strong>No accounts.</strong> We do not ask for a name, email address, or password.</li>
+      <li>
+        <strong>Anonymous cookie.</strong> A signed, HttpOnly cookie (<code>tenq_sid</code>) holds a
+        random identifier so your questions and result for the day stay with your browser. It lasts
+        up to one year. Clearing your cookies removes it.
+      </li>
+      <li>
+        <strong>Bot protection.</strong> Cloudflare Turnstile runs an invisible check once when a
+        session starts. Cloudflare processes signals from your browser for this purpose under the
+        <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare Privacy Policy</a>.
+      </li>
+      <li>
+        <strong>IP address.</strong> Your IP address is used only to limit abuse. We store it only as
+        a keyed hash that changes every day, never in plain form, and it expires within a day.
+      </li>
+      <li>
+        <strong>Questions.</strong> Your questions are sent to an AI service (Ollama Cloud) to be
+        answered, and are kept with your game for at most two days. The leaderboard shows only an
+        anonymous name such as <code>Player-7F3A9B</code>.
+      </li>
+    </ul>
+  </body>
+</html>

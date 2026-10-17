@@ -2,10 +2,25 @@
 
 ## Status
 
-Phase: **05 — Ollama AI judge and semantic caching (in review)**. Phase 04 is staged on `feature/game-engine` but not yet committed; Phase 05 changes are unstaged on top of it.
-Next: owner commits Phase 04, moves Phase 05 to `feature/ai-judge`, chooses a model with `check_ollama_models`, and optionally runs the live evaluation.
+Phase: **06 — Anonymous identity and anti-abuse (in review)** on `feature/anonymous-identity-security`, stacked on PR #4 (Phases 04 and 05).
+Next: owner reviews and merges PR #4, then reviews Phase 06; production values (Turnstile site and secret keys, origin secret, Vercel routes transform) are set in Phase 10.
 
 ## Log
+
+### 2026-10-17 — Phase 06: anonymous identity and anti-abuse (`feature/anonymous-identity-security`)
+
+Done:
+- `core/session.py`: cookie `<player_id>.<issued_at>.<HMAC>` with server-side 365-day expiry, future-timestamp rejection, current+previous secret rotation with re-signing; `Identifiers` (player hash, daily IP hash, UA hash) keyed by the new `TENQ_PLAYER_HASH_KEY`.
+- `core/client_ip.py` + `OriginGuardMiddleware`: forwarded IP trusted only with a valid `x-origin-secret` (`TENQ_ORIGIN_SECRETS`, required in production); otherwise TCP peer; direct origin access refused with `403 FORBIDDEN_ORIGIN` (health exempt).
+- `integrations/turnstile.py` + `services/session_service.py` + `POST /api/v1/session`: Siteverify with success, hostname allow-list, action `session`, `challenge_ts` ≤ 300 s, test keys refused in production, fail closed on outage; Redis replay cache (off only for Cloudflare test keys, which reuse one dummy token).
+- `repositories/abuse_store.py` + dependencies: fixed-window limits (sessions per IP hash and per device hash, questions per player and per IP hash, reads per IP hash), per-IP in-flight question slots, all before `reserve` so blocked requests are never charged.
+- `BodySizeLimitMiddleware` (4 KB, Content-Length and streaming), generic `500` handler, `405` mapping; `GET /game/today` now requires a session.
+- Frontend: invisible Turnstile loader (`lib/turnstile.ts`, token reset after use), `useAnonymousSession` (single setup per page load), privacy notice footer and `public/privacy.html`.
+- ADR 0014; threat model (T-07, T-08, T-09, T-12 updated; T-21 to T-24 added; section 6 on the 10-questions-per-device limit), architecture section 9, API contract, data model, README, `.env.example`.
+
+Verified on 2026-10-17: backend `ruff check`, `ruff format --check`, `pytest` 291 passed (39 new security tests); frontend `npm run lint`, `npm run build`; live run in the browser pane: the invisible test widget produced a token, the backend validated it against the real Siteverify endpoint with the test secret, and the page showed "Anonymous session ready"; a reload reused the cookie.
+
+Facts checked (vercel.com/docs/headers/request-headers, vercel.com/docs/routing/rewrites, developers.cloudflare.com/turnstile server-side validation and testing pages, plus one Siteverify call with the test secret): see ADR 0014.
 
 ### 2026-10-17 — Phase 05: Ollama AI judge and semantic caching (to be committed on `feature/ai-judge`)
 

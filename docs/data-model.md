@@ -31,7 +31,9 @@ Prefix `tenq:v1:`. All per-day keys expire at **00:00 UTC two days after `game_d
 | `judge:{date}:{judge_key}` | STRING | One validated label; `judge_key = sha256(date, puzzle_id, normalized question, prompt_version, model)` | day + 2 |
 | `judgelock:{date}:{judge_key}` | STRING | Stampede lock token | 25 s |
 | `lb:{date}` | ZSET | member `{finished_at_ms:013d}:{player_hash}`, score `questions * 1e9 + duration_ms` | day + 2 |
-| `rl:{scope}:{subject}:{window}` | STRING | Fixed-window counter | window length |
+| `rl:{scope}:{subject}:{window_start}` | STRING | Fixed-window counter; scopes `session-ip`, `session-device`, `ask-player`, `ask-ip`, `read-ip`; subjects are player hashes or daily IP/device hashes | window length |
+| `conc:ask-ip:{ip_hash}` | STRING | Questions in flight from one IP hash | 60 s safety TTL |
+| `tsreplay:{sha256(token)}` | STRING | Turnstile token already presented | 300 s |
 | `aibudget:day:{date}` | STRING | AI HTTP attempts made today (retries included) | day + 2 |
 | `aibudget:hour:{date}T{HH}` | STRING | AI HTTP attempts in that UTC hour | 2 h |
 | `results:retry` | LIST | JSON results whose SQLite write failed | none (drained by worker) |
