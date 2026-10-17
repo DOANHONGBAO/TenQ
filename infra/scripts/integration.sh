@@ -3,7 +3,8 @@
 # graceful shutdown, exposure. Runs as a separate compose project ("tenq-it") with its own
 # volumes, which are deleted at the end, so local game data is untouched.
 # Usage: COMPOSE="docker compose" infra/scripts/integration.sh     (default: podman-compose)
-set -eu
+# No `set -e`: every step reports through check(), and a failed check must not abort the run.
+set -u
 cd "$(dirname "$0")/../.."
 P=tenq-it
 COMPOSE="${COMPOSE:-podman-compose} -p $P"
@@ -16,9 +17,16 @@ pass=0
 fail=0
 check() { if [ "$2" -eq 0 ]; then pass=$((pass + 1)); echo "ok   $1"; else fail=$((fail + 1)); echo "FAIL $1"; fi; }
 uuid() { python3 -c 'import uuid; print(uuid.uuid4())'; }
-used() {
-    curl -s -b "$JAR" "$BASE/api/v1/game/today" |
-        python3 -c 'import json,sys; b=json.load(sys.stdin); print(b.get("used", b))'
+used() { # attempts used by the test player; retries while the stack is still coming up
+    for _ in $(seq 1 15); do
+        out=$(curl -s --max-time 10 -b "$JAR" "$BASE/api/v1/game/today" |
+            python3 -c 'import json,sys; print(json.load(sys.stdin)["used"])' 2>/dev/null) && {
+            echo "$out"
+            return 0
+        }
+        sleep 2
+    done
+    echo "unavailable"
 }
 wait_healthy() {
     for _ in $(seq 1 40); do
@@ -29,7 +37,7 @@ wait_healthy() {
     return 1
 }
 
-[ -e infra/env/api.env ] || infra/scripts/gen-env.sh
+[ -e infra/env/api.env ] || infra/scripts/gen-env.sh || exit 1
 echo "== build and start"
 $COMPOSE build >/dev/null 2>&1
 $COMPOSE up -d >/dev/null 2>&1 || true
@@ -43,7 +51,10 @@ check "redis has no internet route" $r
 
 echo "== smoke through nginx"
 LOG=$(mktemp)
-infra/scripts/smoke.sh "$BASE" >"$LOG" 2>&1; check "smoke.sh ($(tail -1 "$LOG"))" $?
+infra/scripts/smoke.sh "$BASE" >"$LOG" 2>&1 && r=0 || r=$?
+check "smoke.sh ($(tail -1 "$LOG"))" $r
+[ "$r" -eq 0 ] || grep -E '^(FAIL|ok)' "$LOG" | sed 's/^/     /'
+
 
 echo "== persistence"
 code=$(curl -s -o /dev/null -w '%{http_code}' -c "$JAR" -H 'Content-Type: application/json' \

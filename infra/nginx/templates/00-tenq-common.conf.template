@@ -1,0 +1,57 @@
+# Shared http-level settings: rendered to /etc/nginx/conf.d/00-tenq-common.conf.
+# TenQ.ai edge proxy. Rendered at start-up by the nginx image (envsubst on ${NGINX_*}).
+#
+# Trust model (ADR 0014): in production every request arrives from Vercel, which overwrites
+# X-Forwarded-For / X-Real-IP with the visitor's IP and adds X-Origin-Secret. A request
+# carrying the right secret may name its client IP in X-Real-IP; any other request is
+# identified by its TCP peer address ($remote_addr), so forged headers never choose an IP.
+
+# A 64-character secret is longer than the default map bucket allows.
+map_hash_bucket_size 128;
+
+map $http_x_origin_secret $tenq_origin_ok {
+    default                 0;
+    "${NGINX_ORIGIN_SECRET}" 1;
+}
+
+# Client IP used for rate limits, logs, and the X-Real-IP sent to the API.
+map $tenq_origin_ok $tenq_client_ip {
+    1       $http_x_real_ip;
+    default $remote_addr;
+}
+
+# With NGINX_ENFORCE_ORIGIN=on, requests without the secret are refused (production).
+map "${NGINX_ENFORCE_ORIGIN}:$tenq_origin_ok" $tenq_origin_blocked {
+    "on:0"  1;
+    default 0;
+}
+
+# Only question and guess submissions get the strict per-IP limit.
+map "$request_method:$uri" $tenq_ask_key {
+    "~^POST:/api/v1/game/today/(questions|guesses)$" $tenq_client_ip;
+    default "";
+}
+
+limit_req_zone $tenq_ask_key   zone=tenq_ask:10m rate=${NGINX_ASK_RATE};
+limit_req_zone $tenq_client_ip zone=tenq_api:10m rate=10r/s;
+limit_conn_zone $tenq_client_ip zone=tenq_conn:10m;
+limit_req_status 429;
+limit_conn_status 429;
+limit_req_log_level warn;
+
+# Access log without cookies, query strings, or bodies.
+log_format tenq_json escape=json
+    '{"ts":"$time_iso8601","req_id":"$request_id","client":"$tenq_client_ip",'
+    '"method":"$request_method","path":"$uri","status":$status,'
+    '"bytes":$body_bytes_sent,"rt":$request_time,"upstream_rt":"$upstream_response_time",'
+    '"origin_ok":$tenq_origin_ok}';
+
+# Re-resolve "api" through the container DNS: a restarted API container can get a new IP,
+# and a name resolved only at start-up would keep pointing at the old one.
+resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+
+upstream tenq_api {
+    zone tenq_api_upstream 64k;
+    server api:8000 resolve max_fails=3 fail_timeout=10s;
+    keepalive 16;
+}

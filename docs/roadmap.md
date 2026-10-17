@@ -14,8 +14,8 @@ Every phase must keep the code typed, tested, and readable for a public reposito
 | 06 | Anonymous identity and anti-abuse security | Done (PR #5) |
 | 07 | API endpoints, SQLite, leaderboard | Planned |
 | 08 | Frontend (owner's "Phase 07" brief) | Done (PR #6, #7) |
-| 09 | End-to-end tests and full CI | In review (CI not yet run on GitHub) |
-| 10 | Infrastructure and first deployment | Containers done (owner's "Phase 08" brief, in review); TLS, VM, and deploy pending |
+| 09 | End-to-end tests and full CI | Done (PR #9) |
+| 10 | Infrastructure and first deployment | Containers done (PR #8); production config, CD, and docs prepared (in review); live deployment pending owner actions |
 | 11 | Hardening, observability, launch | Planned |
 
 ## Phase 02 — Repository and local development setup

@@ -1,0 +1,28 @@
+# Server-level limits, timeouts, and security headers shared by every TenQ server block.
+# Rendered to /etc/nginx/conf.d/tenq-server.directives.
+    server_tokens off;
+    access_log /dev/stdout tenq_json;
+
+    # Small requests only: the API accepts short JSON bodies.
+    client_max_body_size 4k;
+    client_body_buffer_size 4k;
+    client_header_buffer_size 1k;
+    large_client_header_buffers 4 8k;
+    client_body_timeout 10s;
+    client_header_timeout 10s;
+    keepalive_timeout 15s;
+    send_timeout 15s;
+
+    # Security headers for an API that never renders HTML. HSTS is added by the HTTPS server.
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Cross-Origin-Resource-Policy "same-site" always;
+    add_header X-Request-ID $request_id always;
+
+    # Edge rate limit responses are clearly marked, so they never look like the API's 429.
+    error_page 429 = @edge_rate_limited;
+    error_page 413 = @edge_too_large;
+    error_page 502 503 504 = @edge_upstream_down;

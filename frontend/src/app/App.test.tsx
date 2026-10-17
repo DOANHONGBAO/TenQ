@@ -295,8 +295,10 @@ describe('hints and guesses', () => {
     await askQuestion(user, 'Is it alive?')
     expect(await within(hints).findByText(/next hint after 1 more try/i)).toBeInTheDocument()
     await guessWord(user, 'penguin') // guesses count towards hints too
+    // Wait for the guess to be judged before looking for the hint (CI machines are slower).
+    await screen.findByText(/“penguin” is not the word/i, {}, { timeout: 5000 })
 
-    expect(await within(hints).findByText('Hint one: vague.')).toBeInTheDocument()
+    expect(await within(hints).findByText('Hint one: vague.', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(within(hints).queryByText('Hint two: a category.')).not.toBeInTheDocument()
     expect(hints).toHaveTextContent('1/4')
   })

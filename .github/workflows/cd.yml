@@ -1,0 +1,77 @@
+# Continuous deployment of the backend to the Oracle VM.
+# Runs only after the "ci" workflow succeeded for a push to main (or manually, e.g. to
+# redeploy or roll back a specific commit). The frontend is deployed by Vercel itself.
+name: cd
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit SHA to deploy (40 characters). Use an older SHA to roll back."
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Repository Settings > Environments > production: add the secrets below and, if wanted,
+    # a required reviewer so every deploy waits for the owner's approval.
+    environment: production
+    env:
+      SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.event.workflow_run.head_sha }}
+    steps:
+      - name: Validate commit SHA
+        run: |
+          case "$SHA" in *[!0-9a-f]*|"") echo "invalid SHA"; exit 1;; esac
+          [ "${#SHA}" -eq 40 ] || { echo "invalid SHA length"; exit 1; }
+
+      - name: Prepare SSH (key and pinned host key from secrets, never printed)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy ${{ env.SHA }} on the VM
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd /opt/tenq/app && git fetch --quiet origin && \
+             git show $SHA:deploy/remote-deploy.sh > /opt/tenq/state/remote-deploy.sh && \
+             sh /opt/tenq/state/remote-deploy.sh $SHA"
+
+      - name: Public health check through Vercel
+        env:
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+        if: ${{ vars.PUBLIC_URL != '' }}
+        run: |
+          for i in $(seq 1 10); do
+            if curl -fsS --max-time 10 "$PUBLIC_URL/api/v1/health"; then exit 0; fi
+            sleep 6
+          done
+          echo "public health check failed"; exit 1
+
+      - name: Remove SSH material
+        if: always()
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts
