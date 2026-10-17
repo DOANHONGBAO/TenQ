@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: **Draft placeholder.** To be completed after `requirements.md` is agreed.
+> Status: **Draft placeholder.** To be completed after `product-spec.md` is agreed.
 
 ## Intended topology
 

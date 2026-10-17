@@ -30,3 +30,4 @@ Development is done with Claude Code, both in ephemeral cloud sessions started f
 - `security-guidance` runs Python hooks on every edit and prompt and an LLM review on stop: more latency and token usage in exchange for earlier security feedback. Disable per-user if it becomes disruptive.
 - Contributors must trust the official marketplace when Claude Code prompts on first open.
 - No community plugins are used; adding one requires a new ADR.
+- Claude never pushes; the owner pushes all branches. `commit-commands` may add AI attribution trailers by default, so its output must be checked before committing.

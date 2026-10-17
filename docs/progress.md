@@ -2,21 +2,29 @@
 
 ## Status
 
-Phase: **0 — Engineering environment setup**. No application code yet.
+Phase: **0 — Engineering workspace bootstrap**. No application code yet.
+Blocked on: approved product specification (`docs/product-spec.md`).
 
 ## Log
 
-### 2026-10-17 — Claude Code tooling (`chore/claude-tooling`)
+### 2026-10-17 — Workspace bootstrap (`chore/claude-workspace`)
 
 Done:
-- Added `.claude/settings.json`: official plugin marketplace, 7 enabled plugins (feature-dev, pr-review-toolkit, commit-commands, claude-md-management, pyright-lsp, typescript-lsp, security-guidance), deny rules for reading `.env` files.
-- Added project skills: `tenq-game-integrity`, `tenq-ai-judge-testing`, `tenq-deployment-audit`.
-- Added `CLAUDE.md`, this file, ADR 0001, and placeholder `requirements.md` / `architecture.md`.
+- Renamed `docs/requirements.md` to `docs/product-spec.md`; placeholder lists expected sections only, no invented rules.
+- Added `docs/engineering-conventions.md`, `docs/development-workflow.md`, ADR 0002 (Proposed), ADR index and template.
+- Rewrote `CLAUDE.md` (shorter; owner-only authorship and no-push rules; links to new docs).
+- Added `.gitignore` and `.editorconfig`.
+- Replaced a literal U+202E (bidi override) character in the AI judge injection corpus with its escaped form.
 
-Deferred (see ADR 0001): Playwright MCP, Context7, GitHub MCP, code-review plugin.
+Known issue: commit `7b95005` on `main` carries `Co-Authored-By` / `Claude-Session` trailers. Removing them requires rewriting `main`; owner decision pending.
+
+### 2026-10-17 — Claude Code tooling (`chore/claude-tooling`, PR #1, merged)
+
+- Added `.claude/settings.json` (official marketplace, 7 plugins, `.env` read deny rules), three project skills, `CLAUDE.md`, ADR 0001, docs skeleton.
+- Deferred (ADR 0001): Playwright MCP, Context7, GitHub MCP, code-review plugin.
 
 ## Next
 
-1. Write `docs/requirements.md` (gameplay rules: game day timezone, question types allowed, attempt refund policy on AI failure, leaderboard rules).
-2. Write `docs/architecture.md` and ADRs for storage split (Redis vs SQLite) and identity (signed cookie).
-3. Scaffold backend (FastAPI + pytest) and frontend (Vite + TS) with CI running lint, type check, and tests.
+1. Owner provides the approved specification → fill `docs/product-spec.md`.
+2. Write `docs/architecture.md` from the spec; ADRs for storage split (Redis vs SQLite) and identity (signed cookie).
+3. Scaffold `backend/` and `frontend/` per `docs/engineering-conventions.md`, with CI running lint, type check, and tests.
