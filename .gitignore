@@ -45,3 +45,6 @@ Thumbs.db
 # Local curl cookie jars (hold session cookies)
 jar
 *.cookies
+
+# Docker Compose environment files (secrets)
+infra/env/*.env

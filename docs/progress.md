@@ -2,10 +2,24 @@
 
 ## Status
 
-Phase: **Hints and guess box (owner request) — in review** on `feature/hints-and-guess`. Frontend merged (PR #6).
-Next: owner re-seeds the word list (hints) and reviews; remaining roadmap items: 02b (CI, pyright, request id, `/ready`), 07 (SQLite results and historical leaderboard), 09 (Playwright E2E), 10 (infrastructure and deployment).
+Phase: **Docker and Nginx (owner's Phase 08 brief) — in review** on `feat/docker-infra`. Hints and guess box merged (PR #7).
+Next: owner review; then TLS, Oracle VM provisioning, Vercel rewrite with the origin secret, and CI/CD (roadmap Phase 10 remainder, 02b, 09).
 
 ## Log
+
+### 2026-10-17 — Docker Compose and Nginx (`feat/docker-infra`)
+
+Done:
+- `backend/Dockerfile` (uv builder stage, slim runtime, uid 10001, health check, graceful SIGTERM with 25 s drain, no secrets), `backend/.dockerignore` (allow-list).
+- `compose.yaml`: nginx (unprivileged, read-only), api (read-only rootfs, no published port), redis 7.2 (AOF + RDB, password, renamed dangerous commands); networks `edge`, `app`, `data` (internal); volumes `sqlite-data`, `redis-data`; health checks, `depends_on: service_healthy`, restart policies, resource limits, `no-new-privileges`, dropped capabilities.
+- Nginx template: origin-secret trust for `X-Real-IP`, optional enforcement (`403 FORBIDDEN_ORIGIN`), 1 question or guess per 2 s per client IP, general and connection limits, 4 KB bodies, timeouts, security headers, no caching, JSON errors marked `"source":"edge"` and `X-RateLimit-Source: nginx`, dynamic DNS for the upstream. Start-up check refuses an empty or short origin secret.
+- `seed_words -` reads the private list from stdin (no secret mount). `infra/scripts/gen-env.sh`, `infra/scripts/smoke.sh`. `docs/infrastructure.md`, README, CLAUDE.md.
+
+Verified on 2026-10-17 with Podman 5.8.7 + podman-compose 1.6.0 on Fedora (Docker itself is not installed; Docker Compose was not run): image build (186 MB, amd64); `up -d` with all three containers healthy; seeding; `smoke.sh` 13/13 (health, headers, JSON 404, session, no-store, edge 429 after 2 s rule, spoofed `X-Forwarded-For`/`X-Real-IP` still limited, 413, only accepted questions charged); app 429 (session limit) distinct from edge 429; win + leaderboard survived `restart` and `down` + `up`; enforce mode: no/wrong secret 403, right secret 200 with the forwarded IP logged; Redis and API have no published ports, `data` network is internal and Redis has no internet, API has egress; graceful shutdown logged; `podman stats` within limits; backend `pytest` 328 passed.
+
+Found and fixed during testing: SELinux bind mounts (`,z`), map hash bucket size for a 64-character secret, image default server shadowing the template (template now renders `default.conf`), `burst=0` invalid (strict limit uses no burst), stale upstream IP after an API restart (`resolve` + container DNS).
+
+Not verified: arm64 build (no emulation on this host; base images are multi-arch); Docker Engine/Compose specifically.
 
 ### 2026-10-17 — Progressive hints and guess box (`feature/hints-and-guess`)
 

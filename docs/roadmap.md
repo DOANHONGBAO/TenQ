@@ -13,9 +13,9 @@ Every phase must keep the code typed, tested, and readable for a public reposito
 | 05 | Ollama AI judge and semantic caching | Done (PR #4) |
 | 06 | Anonymous identity and anti-abuse security | Done (PR #5) |
 | 07 | API endpoints, SQLite, leaderboard | Planned |
-| 08 | Frontend (owner's "Phase 07" brief) | In review |
+| 08 | Frontend (owner's "Phase 07" brief) | Done (PR #6, #7) |
 | 09 | End-to-end tests and full CI | Planned |
-| 10 | Infrastructure and first deployment | Planned |
+| 10 | Infrastructure and first deployment | Containers done (owner's "Phase 08" brief, in review); TLS, VM, and deploy pending |
 | 11 | Hardening, observability, launch | Planned |
 
 ## Phase 02 — Repository and local development setup
