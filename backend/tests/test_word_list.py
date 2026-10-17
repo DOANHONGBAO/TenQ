@@ -76,6 +76,7 @@ def test_seed_command_loads_file(
     monkeypatch.setenv("TENQ_ENV", "test")
     monkeypatch.setenv("TENQ_DATABASE_PATH", str(db_path))
     monkeypatch.setenv("TENQ_WORD_SELECTION_KEY", "ab" * 32)
+    monkeypatch.setenv("TENQ_SESSION_SECRET", "cd" * 32)
     seed_words.get_settings.cache_clear()
 
     assert seed_words.main([str(source)]) == 0
@@ -105,6 +106,7 @@ def test_seed_command_rejects_duplicates_without_writing(
     monkeypatch.setenv("TENQ_ENV", "test")
     monkeypatch.setenv("TENQ_DATABASE_PATH", str(db_path))
     monkeypatch.setenv("TENQ_WORD_SELECTION_KEY", "ab" * 32)
+    monkeypatch.setenv("TENQ_SESSION_SECRET", "cd" * 32)
     seed_words.get_settings.cache_clear()
 
     assert seed_words.main([str(source)]) == 1

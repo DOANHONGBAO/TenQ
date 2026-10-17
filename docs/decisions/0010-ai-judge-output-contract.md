@@ -1,6 +1,6 @@
 # ADR 0010: AI judge output contract without relying on structured outputs
 
-- Status: Proposed
+- Status: Proposed; output format superseded by [ADR 0013](0013-hybrid-judge-json-contract.md)
 - Date: 2026-10-17
 
 ## Context

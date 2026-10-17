@@ -2,7 +2,7 @@
 
 Daily AI 10-questions deduction game. Zero login, single player: everyone gets the same secret each game day and at most 10 questions answered by an AI judge.
 
-> Status: Phase 03 (daily secret word engine). Questions and the AI judge are not implemented yet. See [docs/roadmap.md](docs/roadmap.md).
+> Status: Phase 05 (Ollama AI judge). The judge runs against a built-in mock by default; the real Ollama Cloud API is opt-in. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Repository layout
 
@@ -22,8 +22,22 @@ docs/       requirements, architecture, API contract, ADRs, roadmap, progress
 | Python | 3.12 (installed by uv) | `uv python find 3.12` |
 | Node.js | 22.12 or newer (see `frontend/.nvmrc`) | `node --version` |
 | npm | 10 or newer | `npm --version` |
+| Podman or Docker | any recent | `podman --version` |
 
-On Fedora: `sudo dnf install git uv nodejs`. Docker is not needed yet.
+On Fedora: `sudo dnf install git uv nodejs podman`.
+
+## Redis
+
+Redis 7.2 (the last BSD-licensed release line) runs in a container:
+
+```bash
+# for the app (port 6379)
+podman run -d --name tenq-redis -p 127.0.0.1:6379:6379 docker.io/library/redis:7.2-alpine
+# for the tests (port 6390, database 15 is flushed by every test)
+podman run -d --name tenq-redis-test -p 127.0.0.1:6390:6379 docker.io/library/redis:7.2-alpine redis-server --save "" --appendonly no
+```
+
+After a reboot: `podman start tenq-redis tenq-redis-test`. Redis tests are skipped with a clear message when the test instance is not running; set `TENQ_TEST_REDIS_URL` to use another one.
 
 ## Backend
 
@@ -33,13 +47,23 @@ uv python install 3.12          # once; uv keeps it separate from the system Pyt
 uv sync                         # creates backend/.venv with the exact versions in uv.lock
 cp .env.example .env            # local settings; .env is git-ignored
 python3 -c "import secrets; print(secrets.token_hex(32))"
-                                # paste the output into .env as TENQ_WORD_SELECTION_KEY=...
+                                # paste into .env as TENQ_WORD_SELECTION_KEY=...
+python3 -c "import secrets; print(secrets.token_hex(32))"
+                                # run again, paste as TENQ_SESSION_SECRET=... (must differ)
 uv run python -m app.scripts.seed_words --dev                # fake words, or:
 uv run python -m app.scripts.seed_words secrets/words.json   # private curated list
 uv run uvicorn app.main:create_app --factory --reload
 ```
 
-Check: `curl http://127.0.0.1:8000/api/v1/health` returns `{"status":"ok"}`, and `curl http://127.0.0.1:8000/api/v1/puzzles/today` returns today's UTC date and reset time (never the word).
+Check: `curl http://127.0.0.1:8000/api/v1/health` returns `{"status":"ok"}`, and `curl http://127.0.0.1:8000/api/v1/puzzles/today` returns today's UTC date and reset time (never the word). Try a question:
+
+```bash
+curl -c /tmp/tenq.cookies -b /tmp/tenq.cookies http://127.0.0.1:8000/api/v1/game/today          # starts an anonymous session
+curl -c /tmp/tenq.cookies -b /tmp/tenq.cookies -H "Idempotency-Key: $(python3 -c 'import uuid; print(uuid.uuid4())')" \
+     -H 'Content-Type: application/json' -d '{"question": "Is it alive?"}' \
+     http://127.0.0.1:8000/api/v1/game/today/questions
+curl http://127.0.0.1:8000/api/v1/leaderboard/today
+```
 
 The curated word list (`backend/secrets/words.json`), the selection key, and the SQLite file (`backend/data/`) are secret and git-ignored. Keep an encrypted backup of the key and the list: losing the key changes every future, not yet pinned day. Interactive docs: http://127.0.0.1:8000/api/docs (disabled in production).
 
@@ -50,6 +74,25 @@ uv run ruff check .
 uv run ruff format --check .
 uv run pytest
 ```
+
+## AI judge (Ollama Cloud)
+
+By default (`TENQ_AI_JUDGE=mock`) questions go through the full judge pipeline against a built-in mock: no network, no key, no cost. To use the real API:
+
+1. Create an API key at ollama.com and put it in `backend/.env` as `TENQ_OLLAMA_API_KEY=...` (never commit or paste it anywhere).
+2. Ollama does not publish which models the free plan includes. Check what your key can use (1 request, plus 1 per probe):
+   ```bash
+   uv run python -m app.scripts.check_ollama_models
+   uv run python -m app.scripts.check_ollama_models --probe <model-name>
+   ```
+3. Set `TENQ_OLLAMA_MODEL=<model-name>` and `TENQ_AI_JUDGE=ollama`, then restart the API. For thinking models such as `gpt-oss` also set `TENQ_OLLAMA_THINK=low`: otherwise reasoning can use up `num_predict` and the JSON answer is cut off (`done_reason=length`).
+4. Optional, costs quota: measure accuracy and consistency on a small labelled set, and run the 2-request smoke test:
+   ```bash
+   uv run python -m app.scripts.evaluate_judge --live --max-requests 30 --repeat 2
+   TENQ_LIVE_AI=1 uv run pytest -m live_ai
+   ```
+
+`TENQ_AI_HOURLY_BUDGET` and `TENQ_AI_DAILY_BUDGET` cap model HTTP attempts (retries included). When a budget is used up or the provider is down, players get a polite "try again" message and are not charged.
 
 ## Frontend
 

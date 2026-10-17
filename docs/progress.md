@@ -2,10 +2,46 @@
 
 ## Status
 
-Phase: **03 — Daily secret word engine (in review)** on `feature/daily-secret-word` (stacked on `feature/project-bootstrap`).
-Next: owner review; then Phase 02b (request id, `/ready`, pyright, CI) or Phase 03b (remaining domain rules), as the owner decides.
+Phase: **05 — Ollama AI judge and semantic caching (in review)**. Phase 04 is staged on `feature/game-engine` but not yet committed; Phase 05 changes are unstaged on top of it.
+Next: owner commits Phase 04, moves Phase 05 to `feature/ai-judge`, chooses a model with `check_ollama_models`, and optionally runs the live evaluation.
 
 ## Log
+
+### 2026-10-17 — Phase 05: Ollama AI judge and semantic caching (to be committed on `feature/ai-judge`)
+
+Done:
+- `integrations/ollama_client.py`: pooled httpx2 client, Bearer auth, per-attempt timeouts inside an overall deadline, bounded retries with jittered backoff and Retry-After, typed errors (401/403, 402, 429, 5xx, timeout, connection, malformed envelope), token and latency logging without prompts.
+- `integrations/ai_judge.py`: `JudgeContext`, `JudgeOutput` (`{"result": LABEL}`, `extra="forbid"`), strict `parse_judge_output`; `integrations/judge_prompt.py` (prompt version `2026-10-17.1`, question sent as JSON data); `integrations/ollama_mock.py` (`MockOllamaProvider` transport).
+- `models/judge_rules.py`: deterministic PENALTY (open-ended, several questions, manipulation) and exact-guess WIN.
+- `services/judge_service.py` (`HybridJudge`): rules, shared daily cache, single-flight + Redis lock, circuit breaker, hourly/daily budget (Lua), concurrency limit, one strict re-ask, WIN verification. `repositories/judge_cache.py`, `core/circuit_breaker.py`.
+- GameService maps invalid output to `502 AI_INVALID_RESPONSE` and provider problems to `503 AI_UNAVAILABLE`, both uncharged; the judge never touches attempts or the leaderboard.
+- Redis TTLs are now computed from the application clock (`EXPIRE ttl`) instead of absolute `EXPIREAT`, so fixed-clock tests stay valid on any real date.
+- Settings: `TENQ_AI_JUDGE` (`mock` default, production requires `ollama`), `TENQ_OLLAMA_API_KEY` (or `OLLAMA_API_KEY`), `TENQ_OLLAMA_MODEL` (no default), `TENQ_OLLAMA_THINK`, budgets, concurrency; empty `.env` values mean unset.
+- Scripts: `check_ollama_models` (list + optional single probe), `evaluate_judge` (accuracy and consistency, mock by default, live capped at 120 requests). Opt-in `live_ai` pytest marker.
+- ADR 0013; architecture 4.3, data model keys, roadmap, README, `.env.example`, judge skill checklist updated.
+
+Verified on 2026-10-17: `ruff check`, `ruff format --check`, `pytest` 251 passed (Redis 7.2.16); `evaluate_judge` in mock mode runs end to end (mock accuracy is not meaningful).
+
+Live evaluation by the owner (`gpt-oss:20b`, prompt `2026-10-17.1`, 30 requests, repeat 2): model-only accuracy 0.857, consistency 0.867, 4 of 30 outputs invalid, ~110 output tokens and 1.8 s per call. Diagnosis with 2 extra requests: without `think`, gpt-oss spends `num_predict=256` on reasoning and the JSON is truncated (`done_reason=length`); with `think=low` the answer is complete (22 tokens). The same probe showed the model answering WIN to "Is the secret word apple?" for another word (rejected by the server-side check). Follow-ups made: `wrong_explicit_guess` rule (deterministic NO, no AI call), prompt `2026-10-17.2` ("guessing any other word is NO"), default `num_predict` 512, truncation logged, evaluation interleaves words and records failure reasons, walrus "Can you eat it?" relabelled ambiguous. Recommended setting: `TENQ_OLLAMA_THINK=low`. A new live evaluation is needed to measure the effect.
+
+Facts checked (docs.ollama.com/cloud, docs.ollama.com/api/chat, docs.ollama.com/api/errors, ollama.com/pricing, 2026-10-17): endpoint and auth as above; `GET /api/tags` lists models; Free plan has starter usage on unpublished starter models, monthly reset, 1 concurrent request; errors are `{"error": ...}` with 429 and 500/502 documented.
+
+### 2026-10-17 — Phase 04: game engine and Redis atomic state (`feature/game-engine`)
+
+Done:
+- `models/game.py` (status machine, answers, score, anonymous display name), `models/question.py` (OQ-04 checks, normalization, server-side WIN token check).
+- `repositories/game_store.py`: Lua `reserve` / `commit` / `release`; keys per UTC date and player hash; `EXPIREAT` at 00:00 UTC of date + 2; history; duplicate set; idempotency hash; leaderboard ZSET with member `{finished_at_ms:013d}:{player_hash}` for deterministic ties.
+- `services/game_service.py`: reserve, judge with timeout, verify WIN, commit or release; Redis errors become 503 without charging.
+- `integrations/ai_judge.py`: `AIJudge` protocol and `FakeAIJudge` (scripted answers, failures, delay, gate).
+- `core/session.py`: minimal signed `tenq_sid` cookie and keyed player hash; new settings `TENQ_SESSION_SECRET`, `TENQ_REDIS_URL`, `TENQ_QUESTION_LEASE_MS`, `TENQ_JUDGE_TIMEOUT_S`, `TENQ_AI_JUDGE` (production refuses the fake judge).
+- API: `GET /game/today`, `POST /game/today/questions` (UUID v4 `Idempotency-Key`, body accepts only `question`), `GET /leaderboard/today`; error codes from the contract.
+- Docs: API contract (status `in_progress`, session issuance until Phase 06, replay semantics, tie-breaking), data model (keys and scripts as built), architecture row, roadmap, README (Redis via Podman), `.env.example`.
+
+Verified on 2026-10-17 with Redis 7.2.16 (Podman, port 6390): `ruff check`, `ruff format --check`, `pytest` 144 passed, three full runs and fifteen runs of the concurrency, midnight, and restart tests without a failure; a live uvicorn served session creation, two charged questions, a duplicate refusal, and the leaderboard.
+
+Notes:
+- The owner must add `TENQ_SESSION_SECRET` to `backend/.env` and run a local Redis on port 6379.
+- Pyright is still not installed (Phase 02b).
 
 ### 2026-10-17 — Phase 03: daily secret word engine (`feature/daily-secret-word`)
 

@@ -53,7 +53,7 @@ Every non-2xx response uses one envelope:
 
 ```ts
 type Answer = "YES" | "NO" | "IRRELEVANT" | "PENALTY" | "WIN";
-type GameStatus = "not_started" | "active" | "won" | "lost";
+type GameStatus = "not_started" | "in_progress" | "won" | "lost";
 
 interface HistoryEntry {
   number: number;            // 1..10
@@ -101,6 +101,10 @@ Responses:
 
 Returns the caller's `GameState` for the current UTC day. If the player has not asked anything today: `status = "not_started"`, `used = 0`, empty history.
 
+Until Phase 06 adds `POST /session` with Turnstile, this endpoint also starts the anonymous session: without a valid `tenq_sid` cookie it sets a new one (`HttpOnly; SameSite=Lax; Path=/api; Max-Age=31536000`, plus `Secure` in production).
+
+`started_at` is when the first charged question was received (its reservation time); `finished_at` is when the winning or tenth question was committed. Both come from the server clock only.
+
 ### 4.4 `POST /game/today/questions` *(session)*
 
 Headers: `Idempotency-Key: <UUID v4>` (required). The client generates one key per user submission and reuses it for retries of that submission only.
@@ -127,7 +131,7 @@ Response `200 OK`:
 }
 ```
 
-Replays of a completed submission return the same body with header `Idempotent-Replayed: true`.
+Replays of a completed submission return the same `number` and `answer` with header `Idempotent-Replayed: true`; `game` is the player's current state. The request body accepts only `question`; any other field (for example `remaining`, `used`, `status`) is rejected with `422 VALIDATION_ERROR`.
 
 Errors: `400`, `401`, `409 QUESTION_IN_PROGRESS | ATTEMPT_LIMIT_REACHED | GAME_FINISHED | DUPLICATE_QUESTION`, `422 INVALID_QUESTION | IDEMPOTENCY_KEY_REUSED | VALIDATION_ERROR`, `429`, `502 AI_INVALID_RESPONSE`, `503 AI_UNAVAILABLE | SERVICE_UNAVAILABLE`.
 
@@ -146,7 +150,7 @@ Errors: `400`, `401`, `409 QUESTION_IN_PROGRESS | ATTEMPT_LIMIT_REACHED | GAME_F
 }
 ```
 
-Only won games are listed (OQ-07). `me` is `null` without a session or if the caller has not won today. Ranking: `questions` ascending, then `duration_ms` ascending, then earlier `finished_at`.
+Only won games are listed (OQ-07). `me` is `null` without a session or if the caller has not won today. Ranking: `questions` ascending, then `duration_ms` ascending (server-measured, millisecond resolution), then earlier `finished_at`, then player hash; the order is total and deterministic. Entries carry only the anonymous `display_name` (`Player-` + first 6 hex characters of the keyed player hash).
 
 ### 4.6 `GET /leaderboard/{date}?limit=50`
 
