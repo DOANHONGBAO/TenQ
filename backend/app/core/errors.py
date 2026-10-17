@@ -23,6 +23,10 @@ class AppError(Exception):
     message = "An unexpected error occurred."
     headers: ClassVar[Mapping[str, str] | None] = None
 
+    @property
+    def response_headers(self) -> Mapping[str, str] | None:
+        return self.headers
+
     def __init__(self, message: str | None = None, details: dict[str, str] | None = None) -> None:
         super().__init__(message or self.message)
         self.message = message or self.message
@@ -46,6 +50,38 @@ class ServiceUnavailableError(AppError):
     code = "SERVICE_UNAVAILABLE"
     message = "The service is temporarily unavailable."
     headers: ClassVar[Mapping[str, str] | None] = MappingProxyType({"Retry-After": "5"})
+
+
+class ForbiddenOriginError(AppError):
+    status_code = 403
+    code = "FORBIDDEN_ORIGIN"
+    message = "Forbidden."
+
+
+class TurnstileFailedError(AppError):
+    status_code = 403
+    code = "TURNSTILE_FAILED"
+    message = "The security check failed. Please reload the page and try again."
+
+
+class PayloadTooLargeError(AppError):
+    status_code = 413
+    code = "PAYLOAD_TOO_LARGE"
+    message = "The request is too large."
+
+
+class RateLimitedError(AppError):
+    status_code = 429
+    code = "RATE_LIMITED"
+    message = "Too many requests. Please slow down and try again shortly."
+
+    def __init__(self, retry_after_s: int) -> None:
+        super().__init__()
+        self.retry_after_s = retry_after_s
+
+    @property
+    def response_headers(self) -> Mapping[str, str]:
+        return {"Retry-After": str(self.retry_after_s)}
 
 
 class BadRequestError(AppError):
@@ -130,7 +166,7 @@ def _envelope(
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
-        return _envelope(exc.status_code, exc.code, exc.message, exc.details, exc.headers)
+        return _envelope(exc.status_code, exc.code, exc.message, exc.details, exc.response_headers)
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_: Request, __: RequestValidationError) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
@@ -140,4 +176,12 @@ def install_error_handlers(app: FastAPI) -> None:
     async def _http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
         if exc.status_code == 404:
             return _envelope(404, "NOT_FOUND", "Resource not found.")
+        if exc.status_code == 405:
+            return _envelope(405, "METHOD_NOT_ALLOWED", "Method not allowed.")
         return _envelope(exc.status_code, "BAD_REQUEST", "The request could not be processed.")
+
+    @app.exception_handler(Exception)
+    async def _unexpected(_: Request, exc: Exception) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        # Details go to the log only; the client sees a generic message (no stack trace).
+        logger.exception("unhandled error: %s", type(exc).__name__)
+        return _envelope(500, "INTERNAL_ERROR", "An unexpected error occurred.")

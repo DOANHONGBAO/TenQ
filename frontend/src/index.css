@@ -42,3 +42,13 @@ body {
 .status-offline {
   color: var(--bad);
 }
+
+.privacy {
+  margin-top: 3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.privacy a {
+  color: inherit;
+}

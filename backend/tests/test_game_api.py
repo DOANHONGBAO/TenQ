@@ -9,6 +9,7 @@ from httpx2 import AsyncClient
 from app.core.session import COOKIE_NAME
 from app.integrations.ai_judge import FakeAIJudge
 from app.services.daily_word_service import DailyWordService
+from tests.conftest import start_session
 
 pytestmark = pytest.mark.anyio
 
@@ -20,24 +21,31 @@ def idem() -> dict[str, str]:
 
 
 async def start(api: AsyncClient) -> None:
-    response = await api.get("/api/v1/game/today")
-    assert response.status_code == 200
+    await start_session(api)
 
 
-async def test_get_game_issues_anonymous_session(api: AsyncClient) -> None:
-    response = await api.get("/api/v1/game/today")
+async def test_session_then_game_state(api: AsyncClient) -> None:
+    response = await api.post("/api/v1/session", json={"turnstile_token": "t-1"})
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     cookie = response.headers["set-cookie"]
     assert cookie.startswith(f"{COOKIE_NAME}=")
     assert "HttpOnly" in cookie and "Path=/api" in cookie and "samesite=lax" in cookie.lower()
-    body = response.json()
+    assert "Secure" not in cookie  # local/test only; production adds Secure
+    assert response.json()["display_name"].startswith("Player-")
+    body = (await api.get("/api/v1/game/today")).json()
     assert body["status"] == "not_started"
     assert (body["used"], body["remaining"], body["max_questions"]) == (0, 10, 10)
     assert body["next_reset_at"] == "2026-10-18T00:00:00.000Z"
 
-    again = await api.get("/api/v1/game/today")
-    assert "set-cookie" not in again.headers  # the session is reused
+    again = await api.post("/api/v1/session", json={"turnstile_token": "t-2"})
+    assert again.status_code == 200 and "set-cookie" not in again.headers
+
+
+async def test_game_state_requires_session(api: AsyncClient) -> None:
+    response = await api.get("/api/v1/game/today")
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "SESSION_REQUIRED"
 
 
 async def test_ask_requires_session(api: AsyncClient) -> None:

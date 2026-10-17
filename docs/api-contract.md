@@ -34,7 +34,8 @@ Every non-2xx response uses one envelope:
 | 401 | `SESSION_REQUIRED` | Missing, invalid, or expired session cookie | No |
 | 403 | `TURNSTILE_FAILED` | Turnstile token rejected | N/A |
 | 403 | `ANSWER_NOT_AVAILABLE` | Answer requested for today or a future date | N/A |
-| 403 | `FORBIDDEN_ORIGIN` | (Nginx) request did not come through Vercel | N/A |
+| 403 | `FORBIDDEN_ORIGIN` | Request did not come through Vercel (missing or wrong `x-origin-secret`; Nginx and API) | N/A |
+| 413 | `PAYLOAD_TOO_LARGE` | Request body over 4 KB | No |
 | 404 | `NOT_FOUND` | Unknown route or date without a puzzle | N/A |
 | 409 | `QUESTION_IN_PROGRESS` | Another question from this player is being judged | No |
 | 409 | `ATTEMPT_LIMIT_REACHED` | 10 questions already used | No |
@@ -95,13 +96,14 @@ Request:
 Responses:
 - `201 Created`: `Set-Cookie: tenq_sid=...; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=31536000`, body `{"display_name": "Player-7F3A"}`.
 - `200 OK`: a valid session cookie was already present; nothing changes.
-- Errors: `403 TURNSTILE_FAILED`, `429 RATE_LIMITED`, `503 SERVICE_UNAVAILABLE`.
+- Errors: `403 TURNSTILE_FAILED` (missing, invalid, expired, replayed, wrong hostname or action; no detail is returned), `429 RATE_LIMITED`, `503 SERVICE_UNAVAILABLE` (Siteverify unreachable: fail closed).
+- The token comes from the invisible Turnstile widget with action `session`, is used once, and the widget is reset afterwards. The cookie has no `Secure` flag outside production (local HTTP).
 
 ### 4.3 `GET /game/today` *(session)*
 
 Returns the caller's `GameState` for the current UTC day. If the player has not asked anything today: `status = "not_started"`, `used = 0`, empty history.
 
-Until Phase 06 adds `POST /session` with Turnstile, this endpoint also starts the anonymous session: without a valid `tenq_sid` cookie it sets a new one (`HttpOnly; SameSite=Lax; Path=/api; Max-Age=31536000`, plus `Secure` in production).
+Without a valid `tenq_sid` cookie it returns `401 SESSION_REQUIRED`; the client then calls `POST /session`.
 
 `started_at` is when the first charged question was received (its reservation time); `finished_at` is when the winning or tenth question was committed. Both come from the server clock only.
 

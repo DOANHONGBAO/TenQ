@@ -3,7 +3,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Query, Response
 
-from app.api.deps import GameServiceDep, OptionalPlayer, PlayerOrNew, RequiredPlayer
+from app.api.deps import (
+    GameServiceDep,
+    OptionalPlayer,
+    QuestionPlayer,
+    ReadLimited,
+    RequiredPlayer,
+)
 from app.core.errors import BadRequestError
 from app.schemas.game import AskRequest, AskResponse, GameStateOut, LeaderboardOut
 
@@ -20,11 +26,11 @@ def _check_idempotency_key(value: str | None) -> str:
     return str(parsed)
 
 
-@router.get("/game/today", response_model=GameStateOut)
+@router.get("/game/today", response_model=GameStateOut, dependencies=[ReadLimited])
 async def get_game(
-    service: GameServiceDep, player: PlayerOrNew, response: Response
+    service: GameServiceDep, player: RequiredPlayer, response: Response
 ) -> GameStateOut:
-    """The caller's state for the current UTC day. Starts an anonymous session if needed."""
+    """The caller's state for the current UTC day (session required: POST /session)."""
     response.headers["Cache-Control"] = "no-store"
     state = await service.state(player)
     return GameStateOut.build(state, service.now())
@@ -34,7 +40,7 @@ async def get_game(
 async def ask_question(
     body: AskRequest,
     service: GameServiceDep,
-    player: RequiredPlayer,
+    player: QuestionPlayer,
     response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> AskResponse:
@@ -50,7 +56,7 @@ async def ask_question(
     )
 
 
-@router.get("/leaderboard/today", response_model=LeaderboardOut)
+@router.get("/leaderboard/today", response_model=LeaderboardOut, dependencies=[ReadLimited])
 async def leaderboard_today(
     service: GameServiceDep,
     player: OptionalPlayer,
