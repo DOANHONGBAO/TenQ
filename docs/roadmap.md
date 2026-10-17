@@ -5,9 +5,10 @@ Every phase must keep the code typed, tested, and readable for a public reposito
 | Phase | Scope | Status |
 |-------|-------|--------|
 | 01 | Requirements and architecture (this document set) | Done |
-| 02 | Repository and local development setup | In review |
+| 02 | Repository and local development setup | Done (PR #2) |
 | 02b | Backend foundation remainder and CI | Planned |
-| 03 | Domain core (pure logic) | Planned |
+| 03 | Daily secret word engine | In review |
+| 03b | Remaining domain rules (pure logic) | Planned |
 | 04 | Redis game store and concurrency | Planned |
 | 05 | AI judge adapter | Planned |
 | 06 | Identity, Turnstile, rate limiting | Planned |
@@ -39,16 +40,26 @@ Acceptance criteria:
 
 Tests: `uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run pytest`
 
-## Phase 03 — Domain core
+## Phase 03 — Daily secret word engine
 
-Scope: clock abstraction and `game_date`, keyed word selection and permutation, question validation and normalization, label enum, WIN verification, state transition rules, leaderboard score function. No I/O.
+Scope (owner brief, 2026-10-17): UTC clock abstraction and `game_date`; `DailyGameConfig`; SQLite `words` table with 365 curated entries and metadata; seed command with validation; keyed yearly permutation with explicit leap-day and year-boundary rules (ADR 0012); daily pinning in `daily_puzzles`; `DailyWordService`; `GET /puzzles/today` and `GET /puzzles/{date}/answer`; minimal error envelope. No AI, Redis, or game frontend.
 
 Acceptance criteria:
-- Selection is deterministic for a fixed seed, never repeats within a cycle, works across 2027-12-31 and 2028-02-29.
-- Every rule in requirements OQ-03 and OQ-04 has a positive and a negative test.
-- Coverage of `domain/` is at least 90%.
+- Same word for every timezone within one UTC day; change exactly at 00:00:00 UTC.
+- Restart and word list edits do not change a pinned day.
+- Common years use every word once; leap years repeat exactly one word, at least 183 days apart; no word on consecutive days, including 31 December to 1 January.
+- The word never appears in today's API responses, OpenAPI schema, logs, or reprs.
+- Seeding rejects wrong counts, duplicates, invalid words, and definitions that contain the word.
 
-Tests: `uv run pytest tests/unit -q --cov=app/domain`
+Tests: `uv run pytest`
+
+## Phase 03b — Remaining domain rules
+
+Scope: question validation and normalization, label enum, WIN verification, state transition rules, leaderboard score function. No I/O.
+
+Acceptance criteria:
+- Every rule in requirements OQ-03 and OQ-04 has a positive and a negative test.
+- Coverage of `models/` is at least 90%.
 
 ## Phase 04 — Redis game store and concurrency
 

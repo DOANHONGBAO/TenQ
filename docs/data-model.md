@@ -90,6 +90,15 @@ CREATE TABLE daily_puzzles (
     pinned_at          TEXT NOT NULL
 );
 
+-- Curated vocabulary (secret). Seeded from the private JSON file; exactly 365 rows.
+CREATE TABLE words (
+    word            TEXT PRIMARY KEY CHECK (length(word) BETWEEN 2 AND 32 AND word NOT GLOB '*[^a-z]*'),
+    part_of_speech  TEXT NOT NULL CHECK (part_of_speech IN ('noun', 'verb', 'adjective', 'adverb')),
+    category        TEXT NOT NULL,
+    definition      TEXT NOT NULL,
+    attributes_json TEXT NOT NULL
+) WITHOUT ROWID;
+
 CREATE TABLE game_results (
     id              INTEGER PRIMARY KEY,
     game_date       TEXT NOT NULL REFERENCES daily_puzzles (game_date),
@@ -116,7 +125,7 @@ CREATE INDEX idx_results_leaderboard
 
 | File | Format | Notes |
 |------|--------|-------|
-| `/opt/tenq/secrets/words.txt` | One lower-case English word per line, `[a-z]{2,32}` | Validated at startup (no duplicates, no empty lines); its SHA-256 is recorded on each pinned puzzle |
-| `/opt/tenq/secrets/selection_seed` | 32 random bytes, hex | Used only for HMAC in word selection |
+| `/opt/tenq/secrets/words.json` (local: `backend/secrets/words.json`) | JSON array of `{word, part_of_speech, category, definition, attributes[]}`; `word` matches `[a-z]{2,32}` | Validated by `app.scripts.seed_words` (exactly 365, unique, definition must not contain the word) and loaded into `words`; the SHA-256 of the sorted word list is recorded on each pinned puzzle |
+| `TENQ_WORD_SELECTION_KEY` (VM `.env`) | 32 random bytes, hex | Used only for HMAC in word selection (ADR 0012) |
 
-The repository ships `backend/tests/fixtures/words_dev.txt` with obviously fake words for development and tests.
+The repository ships no words: `seed_words --dev` generates obviously fake `zzdev...` entries for development and tests.

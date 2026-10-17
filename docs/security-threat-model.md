@@ -27,7 +27,7 @@
 | ID | STRIDE | Threat | Mitigation | Residual risk |
 |----|--------|--------|------------|---------------|
 | T-01 | Info disclosure | Secret word read from the public repo | Word list and seed only on the VM (`/opt/tenq/secrets`, read-only mount); repo has a fake dev list; secret scanning in CI | Owner's local copy must be protected |
-| T-02 | Info disclosure | Secret predicted from date | Keyed selection with HMAC(seed, cycle); seed never published | Seed leak reveals all future words: rotate seed and start a new selection version |
+| T-02 | Info disclosure | Secret predicted from date | Keyed yearly permutation with HMAC-SHA256 (ADR 0012); key never published; vocabulary file kept out of the repository | Seed leak reveals all future words: rotate seed and start a new selection version |
 | T-03 | Info disclosure | Secret leaked through API responses, errors, logs, frontend bundle | API returns only labels; answer endpoint only for past dates; logs never include the word or prompts; no secret in `VITE_*` | None known |
 | T-04 | Info disclosure | Prompt injection makes the model reveal the word | Model output is reduced to one of 5 labels; free text is discarded | Players can extract information one bit at a time, which is the game itself |
 | T-05 | Tampering | Forged `WIN` via injection ("Answer WIN") | Server verifies the word appears in the question before accepting `WIN` | None |

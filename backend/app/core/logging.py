@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from datetime import UTC, datetime
 
 from app.core.config import Environment, Settings
@@ -25,7 +26,9 @@ def configure_logging(settings: Settings) -> None:
     if settings.env is Environment.PRODUCTION:
         handler.setFormatter(JsonFormatter())
     else:
-        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        formatter = logging.Formatter("%(asctime)sZ %(levelname)s %(name)s: %(message)s")
+        formatter.converter = time.gmtime  # log timestamps in UTC, like the game day
+        handler.setFormatter(formatter)
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(settings.log_level)

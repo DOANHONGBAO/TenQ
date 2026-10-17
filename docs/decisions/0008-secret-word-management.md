@@ -1,6 +1,6 @@
 # ADR 0008: Secret word list, keyed selection, and daily pinning
 
-- Status: Proposed
+- Status: Proposed; selection formula superseded by [ADR 0012](0012-yearly-keyed-word-schedule.md)
 - Date: 2026-10-17
 
 ## Context
