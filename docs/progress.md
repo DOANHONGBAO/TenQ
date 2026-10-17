@@ -2,10 +2,24 @@
 
 ## Status
 
-Phase: **01 — Requirements and architecture (in review)**. No application code yet.
-Next: Phase 02 after owner approval of Phase 01 and of the open questions in `requirements.md` section 4.
+Phase: **02 — Repository and local development setup (in review)**. Backend and frontend skeletons run locally; no gameplay yet.
+Next: owner review and push of `feature/project-bootstrap`, then Phase 02b (error envelope, request id, `/ready`, pyright, CI).
 
 ## Log
+
+### 2026-10-17 — Phase 02: repository and local development setup (`feature/project-bootstrap`)
+
+Done:
+- `backend/`: uv project pinned to Python 3.12 (`.python-version`, `uv.lock`); FastAPI app factory `create_app`; `core/config.py` settings with required `TENQ_ENV` (`local` / `test` / `production`) and production guards (https-only CORS, no DEBUG, API docs off); `core/logging.py` (JSON in production); `GET /api/v1/health`; empty `models/`, `services/`, `repositories/`, `integrations/` packages; Ruff and pytest configured; `.env.example`.
+- `frontend/`: Vite + React 19 + TypeScript strict (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`); ESLint with typescript-eslint strict type-checked and react-hooks (replaced the template's oxlint); starter page showing backend status through the Vite `/api` proxy; `lib/http.ts`, `lib/env.ts`; `.env.example`.
+- Root `README.md` with setup steps; `CLAUDE.md` commands; `engineering-conventions.md` backend layout renamed to `models` / `repositories` / `integrations`; roadmap Phase 02 re-scoped, remainder moved to Phase 02b.
+
+Verified on 2026-10-17 (Fedora 44 host, uv 0.12.24, Python 3.12.15, Node 22.23.1, npm 10.9.8): `ruff check`, `ruff format --check`, `pytest` (7 passed), `npm run lint`, `npm run build`; uvicorn served `/api/v1/health` with 200; Vite served the page and proxied `/api/v1/health` with 200; the page showed "Backend online".
+
+Notes:
+- The owner's shell is an Ubuntu 24.04 distrobox without git, uv, or Node; tools run on the Fedora host (`distrobox-host-exec`).
+- Branch prefix `feature/` was requested by the owner; conventions list `feat/`.
+- Docker is not installed on the host (Podman 5.8 is); not needed until Redis arrives.
 
 ### 2026-10-17 — Phase 01: requirements and architecture (`docs/phase-01-architecture`)
 

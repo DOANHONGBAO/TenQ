@@ -34,4 +34,18 @@ React + TypeScript + Vite (Vercel) · FastAPI + Pydantic (Python) · Ollama Clou
 
 ## Commands
 
-None yet. Add exact build, lint, type-check, and test commands here when `backend/` and `frontend/` are scaffolded.
+Tools run on the Fedora host (inside the Ubuntu distrobox, prefix them with `distrobox-host-exec`).
+
+```bash
+# Backend (from backend/)
+uv sync                                                    # install exact versions from uv.lock
+uv run uvicorn app.main:create_app --factory --reload      # http://127.0.0.1:8000/api/v1/health
+uv run ruff check . && uv run ruff format --check .        # lint + format check
+uv run pytest                                              # tests
+
+# Frontend (from frontend/)
+npm ci                                                     # install exact versions from package-lock.json
+npm run dev                                                # http://localhost:5173 (proxies /api to :8000)
+npm run lint                                               # ESLint, zero warnings allowed
+npm run build                                              # tsc -b type check + production build
+```

@@ -29,18 +29,19 @@ backend/
     main.py            app factory: create_app(settings) -> FastAPI
     core/              config (Settings), logging setup, security helpers, error types
     api/               routers only: HTTP <-> schema translation, no business logic
-      deps.py          dependency providers (settings, clients, current player)
+      router.py        mounts every router under /api/v1
     schemas/           Pydantic request/response models (API contract)
-    domain/            pure game rules: no I/O, no framework imports
-    services/          use cases orchestrating domain + adapters
-    adapters/          redis_store.py, sqlite_store.py, ollama_client.py, turnstile.py
+    models/            domain entities and pure game rules: no I/O, no framework imports
+    services/          use cases orchestrating models + repositories + integrations
+    repositories/      persistence: redis_store.py, sqlite_store.py
+    integrations/      external services: ollama_client.py, turnstile.py
   tests/
-    unit/              domain and services with fakes
-    integration/       real Redis/SQLite, API via httpx AsyncClient
+    unit/              models and services with fakes
+    integration/       real Redis/SQLite, API via the FastAPI TestClient
     conftest.py
 ```
 
-Dependency direction: `api -> services -> domain`; `services -> adapters` only through typed `Protocol` interfaces defined next to the service. `domain` imports nothing from the other layers.
+Dependency direction: `api -> services -> models`; `services -> repositories / integrations` only through typed `Protocol` interfaces defined next to the service. `models` imports nothing from the other layers. (Phase 02 renamed the earlier `domain/` and `adapters/` folders to `models/`, `repositories/`, and `integrations/` at the owner's request; responsibilities are unchanged.)
 
 ## 3. TypeScript (frontend)
 

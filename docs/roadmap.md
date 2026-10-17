@@ -4,8 +4,9 @@ Every phase must keep the code typed, tested, and readable for a public reposito
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| 01 | Requirements and architecture (this document set) | In review |
-| 02 | Backend foundation and CI | Planned |
+| 01 | Requirements and architecture (this document set) | Done |
+| 02 | Repository and local development setup | In review |
+| 02b | Backend foundation remainder and CI | Planned |
 | 03 | Domain core (pure logic) | Planned |
 | 04 | Redis game store and concurrency | Planned |
 | 05 | AI judge adapter | Planned |
@@ -16,12 +17,23 @@ Every phase must keep the code typed, tested, and readable for a public reposito
 | 10 | Infrastructure and first deployment | Planned |
 | 11 | Hardening, observability, launch | Planned |
 
-## Phase 02 — Backend foundation and CI
+## Phase 02 — Repository and local development setup
 
-Scope: `backend/` with uv, FastAPI app factory, Pydantic settings, error envelope, request id middleware, JSON logging, `/health` and `/ready`, `.env.example`, Docker Compose for local Redis, GitHub Actions CI (ruff, pyright, pytest, secret scan).
+Scope (as requested by the owner): branch `feature/project-bootstrap`; Python 3.12 backend managed by uv with modules `api`, `core`, `models`, `schemas`, `services`, `repositories`, `integrations`; Pydantic settings with `local` / `test` / `production`; `GET /api/v1/health`; Ruff and pytest; React + TypeScript (strict) + Vite frontend with ESLint and a starter page calling the health endpoint; `.env.example` files; README with setup steps. No Ollama, Redis, or Turnstile.
 
 Acceptance criteria:
-- App fails to start with a clear message if a required setting is missing.
+- `TENQ_ENV` missing makes the app fail at startup with a validation error.
+- Production settings reject `http://` CORS origins and `DEBUG` logging; API docs are disabled.
+- FastAPI and Vite start locally; the starter page shows the backend status through the Vite proxy.
+- Lint, type check, build, and tests pass locally.
+
+Tests: `cd backend && uv run ruff check . && uv run ruff format --check . && uv run pytest` and `cd frontend && npm run lint && npm run build`
+
+## Phase 02b — Backend foundation remainder and CI
+
+Scope: error envelope and exception handlers, request id middleware, `/ready`, pyright strict, Docker Compose for local Redis, GitHub Actions CI (ruff, pyright, pytest, ESLint, `tsc`, secret scan).
+
+Acceptance criteria:
 - Unknown routes and unhandled exceptions return the error envelope without stack traces.
 - CI passes on a pull request and runs only with `contents: read`.
 
