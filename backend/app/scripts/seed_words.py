@@ -3,6 +3,9 @@
 Usage:
     uv run python -m app.scripts.seed_words secrets/words.json
     uv run python -m app.scripts.seed_words --dev     # 365 obviously fake words for local dev
+    docker compose run --rm -T api python -m app.scripts.seed_words - < backend/secrets/words.json
+                                                      # "-" reads the list from stdin, so the
+                                                      # private file never needs a mount
 
 Output never includes the words themselves, only counts and the list fingerprint.
 """
@@ -43,7 +46,8 @@ def dev_entries(count: int) -> list[WordEntry]:
 
 
 def load_entries(path: Path) -> list[WordEntry]:
-    items = WordSeedFile.validate_json(path.read_bytes())
+    data = sys.stdin.buffer.read() if str(path) == "-" else path.read_bytes()
+    items = WordSeedFile.validate_json(data)
     return [item.to_entry() for item in items]
 
 

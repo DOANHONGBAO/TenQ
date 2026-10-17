@@ -1,0 +1,110 @@
+# TenQ.ai stack: nginx (edge) -> api (FastAPI) -> redis, plus a SQLite volume.
+#
+#   cp infra/env/api.env.example   infra/env/api.env      # then fill in secrets
+#   cp infra/env/redis.env.example infra/env/redis.env
+#   cp infra/env/nginx.env.example infra/env/nginx.env
+#   docker compose up -d --build
+#   docker compose run --rm -T api python -m app.scripts.seed_words - < backend/secrets/words.json
+#
+# Only nginx publishes a port. Redis and the API are reachable only on internal networks.
+# Bind mounts use ",z" so they work on SELinux hosts (Fedora, Oracle Linux); Docker on
+# hosts without SELinux ignores it.
+# Sized for an Oracle Always Free Ampere A1 VM (2 OCPU / 12 GB in this project's plan).
+
+name: tenq
+
+services:
+  nginx:
+    image: docker.io/nginxinc/nginx-unprivileged:1.28-alpine
+    depends_on:
+      api:
+        condition: service_healthy
+    env_file: infra/env/nginx.env
+    environment:
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx/conf.d
+      # Lets the image export the container DNS server as NGINX_LOCAL_RESOLVERS.
+      NGINX_ENTRYPOINT_LOCAL_RESOLVERS: "1"
+    ports:
+      # Local default 127.0.0.1:8080. Production (Phase 10) publishes 80/443 with TLS.
+      - "${TENQ_HTTP_BIND:-127.0.0.1}:${TENQ_HTTP_PORT:-8080}:8080"
+    volumes:
+      - ./infra/nginx/templates:/etc/nginx/templates:ro,z
+      - ./infra/nginx/entrypoint/05-check-tenq-env.sh:/docker-entrypoint.d/05-check-tenq-env.sh:ro,z
+    tmpfs:
+      - /tmp
+      - /etc/nginx/conf.d:mode=1777
+    read_only: true
+    networks: [edge, app]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/nginx-health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    stop_grace_period: 10s
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 64M }
+
+  api:
+    build:
+      context: ./backend
+    image: tenq-api:local
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file: infra/env/api.env
+    environment:
+      TENQ_DATABASE_PATH: /data/tenq.sqlite3
+    expose: ["8000"]          # internal only: no "ports:" mapping
+    volumes:
+      - sqlite-data:/data
+    tmpfs: [/tmp]
+    read_only: true
+    networks: [app, data]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2).status != 200)"]
+      interval: 15s
+      timeout: 3s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+
+  redis:
+    image: docker.io/library/redis:7.2-alpine
+    env_file: infra/env/redis.env
+    # The password is read from the environment at start-up, not stored in the image.
+    command: ["sh", "-c", "exec redis-server /usr/local/etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\""]
+    volumes:
+      - redis-data:/data
+      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro,z
+    networks: [data]           # internal network only, no published port
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    stop_grace_period: 20s     # SIGTERM: Redis flushes the AOF before exiting
+    security_opt: [no-new-privileges:true]
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 384M }
+
+networks:
+  edge: {}                     # published port
+  app: {}                      # nginx <-> api; also gives the api outbound internet (AI, Turnstile)
+  data:
+    internal: true             # api <-> redis; no route to or from the internet
+
+volumes:
+  sqlite-data: {}
+  redis-data: {}

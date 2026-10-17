@@ -99,6 +99,17 @@ By default (`TENQ_AI_JUDGE=mock`) questions go through the full judge pipeline a
 
 `TENQ_AI_HOURLY_BUDGET` and `TENQ_AI_DAILY_BUDGET` cap model HTTP attempts (retries included). When a budget is used up or the provider is down, players get a polite "try again" message and are not charged.
 
+## Docker Compose (API + Redis + Nginx)
+
+```bash
+infra/scripts/gen-env.sh            # creates infra/env/*.env with random local secrets
+docker compose up -d --build        # or: podman-compose up -d --build
+docker compose run --rm -T api python -m app.scripts.seed_words - < backend/secrets/words.json
+infra/scripts/smoke.sh              # end-to-end checks through nginx on http://127.0.0.1:8080
+```
+
+Only nginx publishes a port. Details, request path, and tests: [docs/infrastructure.md](docs/infrastructure.md).
+
 ## Frontend
 
 ```bash

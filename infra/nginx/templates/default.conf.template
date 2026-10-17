@@ -1,0 +1,156 @@
+# Rendered to /etc/nginx/conf.d/default.conf, replacing the image's default server.
+# TenQ.ai edge proxy. Rendered at start-up by the nginx image (envsubst on ${NGINX_*}).
+#
+# Trust model (ADR 0014): in production every request arrives from Vercel, which overwrites
+# X-Forwarded-For / X-Real-IP with the visitor's IP and adds X-Origin-Secret. A request
+# carrying the right secret may name its client IP in X-Real-IP; any other request is
+# identified by its TCP peer address ($remote_addr), so forged headers never choose an IP.
+
+# A 64-character secret is longer than the default map bucket allows.
+map_hash_bucket_size 128;
+
+map $http_x_origin_secret $tenq_origin_ok {
+    default                 0;
+    "${NGINX_ORIGIN_SECRET}" 1;
+}
+
+# Client IP used for rate limits, logs, and the X-Real-IP sent to the API.
+map $tenq_origin_ok $tenq_client_ip {
+    1       $http_x_real_ip;
+    default $remote_addr;
+}
+
+# With NGINX_ENFORCE_ORIGIN=on, requests without the secret are refused (production).
+map "${NGINX_ENFORCE_ORIGIN}:$tenq_origin_ok" $tenq_origin_blocked {
+    "on:0"  1;
+    default 0;
+}
+
+# Only question and guess submissions get the strict per-IP limit.
+map "$request_method:$uri" $tenq_ask_key {
+    "~^POST:/api/v1/game/today/(questions|guesses)$" $tenq_client_ip;
+    default "";
+}
+
+limit_req_zone $tenq_ask_key   zone=tenq_ask:10m rate=${NGINX_ASK_RATE};
+limit_req_zone $tenq_client_ip zone=tenq_api:10m rate=10r/s;
+limit_conn_zone $tenq_client_ip zone=tenq_conn:10m;
+limit_req_status 429;
+limit_conn_status 429;
+limit_req_log_level warn;
+
+# Access log without cookies, query strings, or bodies.
+log_format tenq_json escape=json
+    '{"ts":"$time_iso8601","req_id":"$request_id","client":"$tenq_client_ip",'
+    '"method":"$request_method","path":"$uri","status":$status,'
+    '"bytes":$body_bytes_sent,"rt":$request_time,"upstream_rt":"$upstream_response_time",'
+    '"origin_ok":$tenq_origin_ok}';
+
+# Re-resolve "api" through the container DNS: a restarted API container can get a new IP,
+# and a name resolved only at start-up would keep pointing at the old one.
+resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+
+upstream tenq_api {
+    zone tenq_api_upstream 64k;
+    server api:8000 resolve max_fails=3 fail_timeout=10s;
+    keepalive 16;
+}
+
+server {
+    listen 8080 default_server;
+    server_name _;
+    server_tokens off;
+    access_log /dev/stdout tenq_json;
+
+    # Small requests only: the API accepts short JSON bodies.
+    client_max_body_size 4k;
+    client_body_buffer_size 4k;
+    client_header_buffer_size 1k;
+    large_client_header_buffers 4 8k;
+    client_body_timeout 10s;
+    client_header_timeout 10s;
+    keepalive_timeout 15s;
+    send_timeout 15s;
+
+    # Security headers for an API that never renders HTML. HSTS is added with TLS (Phase 10).
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Cross-Origin-Resource-Policy "same-site" always;
+    add_header X-Request-ID $request_id always;
+
+    # Edge rate limit responses are clearly marked, so they never look like the API's 429.
+    error_page 429 = @edge_rate_limited;
+    error_page 413 = @edge_too_large;
+    error_page 502 503 504 = @edge_upstream_down;
+
+    location = /nginx-health {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"ok"}';
+    }
+
+    location /api/ {
+        if ($tenq_origin_blocked) {
+            return 403 '{"error":{"code":"FORBIDDEN_ORIGIN","message":"Forbidden."}}';
+        }
+
+        # No burst: a second question within 2 s from the same client IP gets an edge 429.
+        limit_req zone=tenq_ask;
+        limit_req zone=tenq_api burst=20 nodelay;
+        limit_conn tenq_conn 20;
+
+        proxy_pass http://tenq_api;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        # Overwrite (never append) client-supplied forwarding headers.
+        proxy_set_header X-Real-IP $tenq_client_ip;
+        proxy_set_header X-Forwarded-For $tenq_client_ip;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $request_id;
+        # Nginx is the API's only caller, so it vouches for X-Real-IP with the shared secret.
+        proxy_set_header X-Origin-Secret "${NGINX_ORIGIN_SECRET}";
+
+        proxy_connect_timeout 3s;
+        proxy_send_timeout 10s;
+        # Above the AI judge deadline (20 s) so slow but valid answers still arrive.
+        proxy_read_timeout 30s;
+        proxy_next_upstream off;
+
+        # Game responses are personal: never store them in any cache.
+        proxy_buffering on;
+        proxy_no_cache 1;
+        proxy_cache_bypass 1;
+        proxy_hide_header X-Powered-By;
+        # Upstream 429s pass through unchanged (code RATE_LIMITED, no X-RateLimit-Source).
+        proxy_intercept_errors off;
+    }
+
+    location / {
+        default_type application/json;
+        return 404 '{"error":{"code":"NOT_FOUND","message":"Resource not found."}}';
+    }
+
+    location @edge_rate_limited {
+        default_type application/json;
+        add_header Retry-After "2" always;
+        add_header X-RateLimit-Source "nginx" always;
+        add_header Cache-Control "no-store" always;
+        return 429 '{"error":{"code":"RATE_LIMITED","message":"Too many requests. Please wait a moment.","source":"edge"}}';
+    }
+
+    location @edge_too_large {
+        default_type application/json;
+        return 413 '{"error":{"code":"PAYLOAD_TOO_LARGE","message":"The request is too large.","source":"edge"}}';
+    }
+
+    location @edge_upstream_down {
+        default_type application/json;
+        add_header Retry-After "5" always;
+        add_header Cache-Control "no-store" always;
+        return 503 '{"error":{"code":"SERVICE_UNAVAILABLE","message":"The service is temporarily unavailable.","source":"edge"}}';
+    }
+}

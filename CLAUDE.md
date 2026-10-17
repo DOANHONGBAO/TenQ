@@ -52,4 +52,8 @@ npm run dev                                                # http://localhost:51
 npm run lint                                               # ESLint, zero warnings allowed
 npm test                                                   # Vitest component tests
 npm run build                                              # tsc -b type check + production build
+
+# Containers (repo root; podman-compose works the same)
+infra/scripts/gen-env.sh && docker compose up -d --build   # nginx on 127.0.0.1:8080
+infra/scripts/smoke.sh                                     # end-to-end checks through nginx
 ```
