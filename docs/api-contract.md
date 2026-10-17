@@ -152,6 +152,16 @@ Only won games are listed (OQ-07). `me` is `null` without a session or if the ca
 
 Same shape for a past date (`date < today`), served from SQLite. `404 NOT_FOUND` if no puzzle existed.
 
+### 4.6a `GET /puzzles/today`
+
+No session. Public facts about today's puzzle; the word is never included. Calling it pins today's word server-side if this is the first request of the UTC day.
+
+```json
+{ "game_date": "2026-10-17", "server_time": "2026-10-17T12:00:00.000Z", "next_reset_at": "2026-10-18T00:00:00.000Z" }
+```
+
+`Cache-Control: no-store`. Errors: `503 SERVICE_UNAVAILABLE` if the vocabulary is not seeded.
+
 ### 4.7 `GET /puzzles/{date}/answer`
 
 No session. Only for `date < today` (UTC), per BR-12 and OQ-08.

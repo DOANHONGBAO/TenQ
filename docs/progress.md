@@ -2,10 +2,27 @@
 
 ## Status
 
-Phase: **02 — Repository and local development setup (in review)**. Backend and frontend skeletons run locally; no gameplay yet.
-Next: owner review and push of `feature/project-bootstrap`, then Phase 02b (error envelope, request id, `/ready`, pyright, CI).
+Phase: **03 — Daily secret word engine (in review)** on `feature/daily-secret-word` (stacked on `feature/project-bootstrap`).
+Next: owner review; then Phase 02b (request id, `/ready`, pyright, CI) or Phase 03b (remaining domain rules), as the owner decides.
 
 ## Log
+
+### 2026-10-17 — Phase 03: daily secret word engine (`feature/daily-secret-word`)
+
+Done:
+- `models/clock.py` (`Clock`, `SystemUTCClock`, `FixedClock`, `game_date_at`, `next_reset_at`; naive datetimes rejected), `models/daily_game.py` (`DailyGameConfig`, `DailyPuzzle` with redacted repr), `models/word.py` (entries and list validation), `models/word_schedule.py` (keyed yearly permutation, leap-day and year-boundary rules).
+- `repositories/database.py` (pragmas, numbered SQL migrations), migration `0001` (`words`, `daily_puzzles`), `repositories/word_repository.py` (`WordRepository` protocol, SQLite implementation, `INSERT OR IGNORE` pinning).
+- `services/daily_word_service.py` (`DailyWordService`: pinned word wins, in-memory cache, past-only reveal).
+- `GET /api/v1/puzzles/today` (no word) and `GET /api/v1/puzzles/{date}/answer` (past dates only); minimal error envelope in `core/errors.py`.
+- `TENQ_WORD_SELECTION_KEY` (required, 32-byte hex, `SecretStr`) and `TENQ_DATABASE_PATH` settings; `app.scripts.seed_words` (`--dev` fake words or a private JSON file; output never lists words).
+- Private curated list of 365 nouns with metadata written to `backend/secrets/words.json` (git-ignored, mode 600); not in the repository.
+- ADR 0012 supersedes ADR 0008's selection formula; architecture, data model, API contract (new 4.6a), threat model, roadmap (Phase 03 re-scoped, 03b added), README, CLAUDE.md updated. Local log timestamps are now UTC.
+
+Verified on 2026-10-17: `ruff check`, `ruff format --check`, `pytest` (78 passed); the curated file passed seeding validation; a live uvicorn with that list served `/puzzles/today` (200), `/puzzles/2026-10-17/answer` (403), `/puzzles/2026-01-01/answer` (404), and neither responses nor logs contained the pinned word.
+
+Notes:
+- Pyright is still not installed (Phase 02b), so strict type checking has not been run.
+- The owner must generate their own `TENQ_WORD_SELECTION_KEY` in `backend/.env`; Claude cannot read or write `.env` files.
 
 ### 2026-10-17 — Phase 02: repository and local development setup (`feature/project-bootstrap`)
 

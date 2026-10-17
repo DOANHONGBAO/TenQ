@@ -2,7 +2,7 @@
 
 Daily AI 10-questions deduction game. Zero login, single player: everyone gets the same secret each game day and at most 10 questions answered by an AI judge.
 
-> Status: Phase 02 (repository and local development setup). Gameplay is not implemented yet. See [docs/roadmap.md](docs/roadmap.md).
+> Status: Phase 03 (daily secret word engine). Questions and the AI judge are not implemented yet. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Repository layout
 
@@ -32,10 +32,16 @@ cd backend
 uv python install 3.12          # once; uv keeps it separate from the system Python
 uv sync                         # creates backend/.venv with the exact versions in uv.lock
 cp .env.example .env            # local settings; .env is git-ignored
+python3 -c "import secrets; print(secrets.token_hex(32))"
+                                # paste the output into .env as TENQ_WORD_SELECTION_KEY=...
+uv run python -m app.scripts.seed_words --dev                # fake words, or:
+uv run python -m app.scripts.seed_words secrets/words.json   # private curated list
 uv run uvicorn app.main:create_app --factory --reload
 ```
 
-Check: `curl http://127.0.0.1:8000/api/v1/health` returns `{"status":"ok"}`. Interactive docs: http://127.0.0.1:8000/api/docs (disabled in production).
+Check: `curl http://127.0.0.1:8000/api/v1/health` returns `{"status":"ok"}`, and `curl http://127.0.0.1:8000/api/v1/puzzles/today` returns today's UTC date and reset time (never the word).
+
+The curated word list (`backend/secrets/words.json`), the selection key, and the SQLite file (`backend/data/`) are secret and git-ignored. Keep an encrypted backup of the key and the list: losing the key changes every future, not yet pinned day. Interactive docs: http://127.0.0.1:8000/api/docs (disabled in production).
 
 Quality checks:
 

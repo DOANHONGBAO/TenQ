@@ -42,6 +42,7 @@ uv sync                                                    # install exact versi
 uv run uvicorn app.main:create_app --factory --reload      # http://127.0.0.1:8000/api/v1/health
 uv run ruff check . && uv run ruff format --check .        # lint + format check
 uv run pytest                                              # tests
+uv run python -m app.scripts.seed_words --dev               # seed fake words (or: secrets/words.json)
 
 # Frontend (from frontend/)
 npm ci                                                     # install exact versions from package-lock.json

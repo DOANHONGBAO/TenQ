@@ -130,9 +130,9 @@ The player only ever receives a label, never model free text. A prompt injection
 ### 4.4 Game day and the secret word
 
 - `game_date` = current UTC date, computed by one function from an injectable clock. One word per `game_date` for all players (BR-02).
-- Selection is deterministic and keyed ([ADR 0008](decisions/0008-secret-word-management.md)): `day_number` = days since a fixed epoch, `cycle = day_number // N`, `position = day_number % N`, where N is the word list size. The word is `keyed_shuffle(word_list, HMAC(seed, cycle))[position]`. This has no dependency on day-of-year, so leap years and lists of any size work, and no word repeats within a cycle.
+- Selection is deterministic and keyed ([ADR 0012](decisions/0012-yearly-keyed-word-schedule.md)): each calendar year has a secret permutation of the 365 words derived with HMAC-SHA256 from `TENQ_WORD_SELECTION_KEY`; day-of-year `d` uses position `d - 1`. Leap day 366 reuses an early-year word chosen by the key (at least 183 days apart), and 1 January never repeats 31 December. Code lives in `backend/app/models/word_schedule.py` (pure) and `backend/app/services/daily_word_service.py`.
 - On first use each day the chosen word is pinned in SQLite (`INSERT OR IGNORE` on the date primary key). Later changes to the word list never alter a day that has started.
-- The word list and seed live in `/opt/tenq/secrets/` on the VM, mounted read-only. The repository contains only an obviously fake development list.
+- The curated vocabulary (365 words with part of speech, category, definition, attributes) is a private JSON file seeded into the SQLite `words` table with `python -m app.scripts.seed_words`. The file and key live outside the repository (`backend/secrets/` locally, git-ignored; `/opt/tenq/secrets/` on the VM). The repository only generates obviously fake `zzdev...` words for development and tests.
 
 ### 4.5 Anonymous identity
 
