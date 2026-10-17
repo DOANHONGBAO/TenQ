@@ -2,7 +2,7 @@
 // visible widget, so visitors must be told that it happens and which policies apply.
 export function PrivacyNotice() {
   return (
-    <footer className="privacy">
+    <footer className="privacy site-footer">
       <p>
         No account or personal profile is created. An anonymous, signed cookie keeps your game
         for the day. This site is protected by Cloudflare Turnstile to keep bots out; the Cloudflare{' '}

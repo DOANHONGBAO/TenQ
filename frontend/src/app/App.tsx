@@ -1,32 +1,19 @@
-import { useBackendHealth } from '../features/health/useBackendHealth'
-import { useAnonymousSession } from '../features/session/useAnonymousSession'
-import { PrivacyNotice } from './PrivacyNotice'
+import { api } from '../api/client'
+import type { Api } from '../api/client'
+import { turnstileTokenProvider } from '../features/session/session'
+import type { TokenProvider } from '../features/session/session'
+import { GameProvider } from '../state/GameProvider'
+import { GameScreen } from './GameScreen'
 
-const STATUS_LABEL = {
-  checking: 'Checking backend…',
-  online: 'Backend online',
-  offline: 'Backend offline',
-} as const
+interface Props {
+  client?: Api
+  getToken?: TokenProvider
+}
 
-const SESSION_LABEL = {
-  checking: 'Starting anonymous session…',
-  ready: 'Anonymous session ready',
-  failed: 'Could not start a session. Please reload the page.',
-} as const
-
-export function App() {
-  const status = useBackendHealth()
-  const session = useAnonymousSession()
-
+export function App({ client = api, getToken = turnstileTokenProvider }: Props) {
   return (
-    <main className="page">
-      <h1>TenQ.ai</h1>
-      <p className="tagline">One secret a day. Ten questions. Can you deduce it?</p>
-      <p className={`status status-${status}`} role="status">
-        {STATUS_LABEL[status]}
-      </p>
-      <p className="status">{SESSION_LABEL[session]}</p>
-      <PrivacyNotice />
-    </main>
+    <GameProvider client={client} getToken={getToken}>
+      <GameScreen client={client} />
+    </GameProvider>
   )
 }

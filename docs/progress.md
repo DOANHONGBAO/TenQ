@@ -2,10 +2,22 @@
 
 ## Status
 
-Phase: **06 — Anonymous identity and anti-abuse (in review)** on `feature/anonymous-identity-security`, stacked on PR #4 (Phases 04 and 05).
-Next: owner reviews and merges PR #4, then reviews Phase 06; production values (Turnstile site and secret keys, origin secret, Vercel routes transform) are set in Phase 10.
+Phase: **Frontend (owner's Phase 07 brief, roadmap row 08) — in review** on `feature/frontend-game`. Phases 04 to 06 are merged (PR #4, #5).
+Next: owner review; remaining roadmap items: 02b (CI, pyright, request id, `/ready`), 07 (SQLite results and historical leaderboard), 09 (Playwright E2E), 10 (infrastructure and deployment).
 
 ## Log
+
+### 2026-10-17 — Frontend game experience (`feature/frontend-game`)
+
+Done:
+- API layer (`src/api`): contract types with runtime guards, single fetch client with timeouts and `ApiError` from the error envelope.
+- State (`src/state`): reducer + `GameProvider` (session bootstrap via Turnstile on 401, idempotent asks with a key persisted in `sessionStorage`, server re-read after every failure, maintenance retry, visibility refresh), server-offset countdown that only triggers a server refresh at reset, leaderboard hook.
+- UI: logo, Daily Challenge number and UTC date, rules, 10-dot attempts meter, question form with loading state, answer feedback (aria-live), history, win and lose screens with spoiler-free share, leaderboard, yesterday's word, notices, loading and maintenance screens, privacy footer; responsive CSS with light/dark tokens and reduced-motion support. See `docs/frontend.md`.
+- Tests: 27 Vitest tests (session bootstrap and Turnstile mock, loading, maintenance and error states, each answer's feedback, double-click guard, AI-unavailable and timeout handling with server counts, idempotency key reuse after reload, persistence after refresh, win and lose screens, keyboard play and focus, leaderboard, share text, countdown formatting, Turnstile lifecycle).
+
+Verified on 2026-10-17: `npm run lint`, `npm test` (27 passed), `npm run build`; live run against the backend (mock judge, test Turnstile keys) in the browser pane at 1280x860, 768x1024 (light), and 375x812 (dark): questions answered, history kept after reload, no horizontal overflow; with the backend stopped the page showed the maintenance screen.
+
+Not covered: real-browser automated viewport tests (Playwright) are planned for roadmap Phase 09; the viewport checks above were manual.
 
 ### 2026-10-17 — Phase 06: anonymous identity and anti-abuse (`feature/anonymous-identity-security`)
 

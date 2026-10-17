@@ -20,4 +20,9 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    // Test assertions pass mocked methods around (expect(api.ask).toHaveBeenCalled()).
+    files: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
+    rules: { '@typescript-eslint/unbound-method': 'off' },
+  },
 )

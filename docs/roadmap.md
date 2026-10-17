@@ -9,11 +9,11 @@ Every phase must keep the code typed, tested, and readable for a public reposito
 | 02b | Backend foundation remainder and CI | Planned |
 | 03 | Daily secret word engine | Done (PR #3) |
 | 03b | Remaining domain rules (pure logic) | Planned |
-| 04 | Game engine and Redis atomic state | In review (PR #4) |
-| 05 | Ollama AI judge and semantic caching | In review (PR #4) |
-| 06 | Anonymous identity and anti-abuse security | In review |
+| 04 | Game engine and Redis atomic state | Done (PR #4) |
+| 05 | Ollama AI judge and semantic caching | Done (PR #4) |
+| 06 | Anonymous identity and anti-abuse security | Done (PR #5) |
 | 07 | API endpoints, SQLite, leaderboard | Planned |
-| 08 | Frontend | Planned |
+| 08 | Frontend (owner's "Phase 07" brief) | In review |
 | 09 | End-to-end tests and full CI | Planned |
 | 10 | Infrastructure and first deployment | Planned |
 | 11 | Hardening, observability, launch | Planned |

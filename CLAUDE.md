@@ -50,5 +50,6 @@ TENQ_LIVE_AI=1 uv run pytest -m live_ai                     # opt-in real Ollama
 npm ci                                                     # install exact versions from package-lock.json
 npm run dev                                                # http://localhost:5173 (proxies /api to :8000)
 npm run lint                                               # ESLint, zero warnings allowed
+npm test                                                   # Vitest component tests
 npm run build                                              # tsc -b type check + production build
 ```

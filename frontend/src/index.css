@@ -1,21 +1,63 @@
+/* TenQ.ai styles: plain CSS with design tokens, mobile first, light and dark themes. */
+
 :root {
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   color-scheme: light dark;
-  --fg: #1d1d1f;
-  --bg: #fafafa;
-  --muted: #6b6b70;
-  --ok: #1a7f37;
-  --bad: #c62828;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface-2: #eef0f6;
+  --fg: #16181d;
+  --muted: #565c6b;
+  --border: #d9dce5;
+  --brand: #4f46e5;
+  --brand-fg: #ffffff;
+  --focus: #f59e0b;
+
+  --yes: #15803d;
+  --yes-bg: #dcfce7;
+  --no: #b91c1c;
+  --no-bg: #fee2e2;
+  --irr: #4b5563;
+  --irr-bg: #e5e7eb;
+  --pen: #a16207;
+  --pen-bg: #fef3c7;
+  --win: #4f46e5;
+  --win-bg: #e0e7ff;
+
+  --radius: 14px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 4px 16px rgb(0 0 0 / 5%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --fg: #f2f2f2;
-    --bg: #141416;
-    --muted: #a0a0a8;
-    --ok: #4ac26b;
-    --bad: #ff6b6b;
+    --bg: #0f1115;
+    --surface: #181b22;
+    --surface-2: #222632;
+    --fg: #eef0f5;
+    --muted: #a9afbf;
+    --border: #2f3442;
+    --brand: #8b85ff;
+    --brand-fg: #0f1115;
+    --yes: #4ade80;
+    --yes-bg: #12301f;
+    --no: #f87171;
+    --no-bg: #3a1717;
+    --irr: #c3c8d4;
+    --irr-bg: #2a2f3b;
+    --pen: #facc15;
+    --pen-bg: #3a2f0b;
+    --win: #a5a1ff;
+    --win-bg: #25224d;
+    --shadow: none;
   }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
@@ -24,31 +66,522 @@ body {
   color: var(--fg);
 }
 
-.page {
-  max-width: 40rem;
+h1,
+h2 {
+  line-height: 1.25;
+  margin: 0 0 0.75rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+}
+
+a {
+  color: var(--brand);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  background: var(--brand);
+  color: var(--brand-fg);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* Layout ---------------------------------------------------------------------------- */
+
+.app-shell {
+  max-width: 72rem;
   margin: 0 auto;
-  padding: 4rem 1rem;
+  padding: 1rem;
+}
+
+.layout {
+  display: grid;
+  gap: 1rem;
+  outline: none;
+}
+
+.play-column,
+.side-column {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .app-shell {
+    padding: 1.5rem 2rem;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .layout > .banner,
+  .layout > .loading,
+  .layout > .maintenance {
+    grid-column: 1 / -1;
+  }
+
+  .side-column {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem 1.25rem;
+}
+
+/* Header ---------------------------------------------------------------------------- */
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.logo-mark {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.logo-mark rect {
+  fill: var(--brand);
+}
+
+.logo-mark text {
+  fill: var(--brand-fg);
+  font: 800 13px system-ui, sans-serif;
+}
+
+.logo-dot {
+  color: var(--brand);
+}
+
+.daily {
+  flex: 1 1 12rem;
+}
+
+.daily p {
+  margin: 0;
+}
+
+.daily-date,
+.countdown-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.countdown {
+  margin: 0;
+  display: grid;
+  text-align: right;
+}
+
+.countdown-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* Rules ----------------------------------------------------------------------------- */
+
+.rules summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.rules ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+}
+
+/* Attempts meter -------------------------------------------------------------------- */
+
+.meter-title {
+  font-size: 1rem;
+}
+
+.meter-title span {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.meter-dots {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dot {
+  aspect-ratio: 1;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  max-width: 2.5rem;
+}
+
+.dot-empty {
+  background: var(--surface-2);
+}
+
+.dot-yes {
+  background: var(--yes);
+  border-color: var(--yes);
+}
+
+.dot-no {
+  background: var(--no);
+  border-color: var(--no);
+}
+
+.dot-irrelevant {
+  background: var(--irr);
+  border-color: var(--irr);
+}
+
+.dot-penalty {
+  background: var(--pen);
+  border-color: var(--pen);
+}
+
+.dot-win {
+  background: var(--win);
+  border-color: var(--win);
+}
+
+/* Question form --------------------------------------------------------------------- */
+
+.ask-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.ask-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ask-row input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.ask-row input:disabled {
+  opacity: 0.7;
+}
+
+.ask-hint {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.btn {
+  font: inherit;
+  font-weight: 700;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  padding: 0.7rem 1.1rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: var(--brand-fg);
+}
+
+.btn-link {
+  background: none;
+  color: var(--brand);
+  padding: 0.25rem;
+  text-decoration: underline;
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 2px solid currentcolor;
+  border-right-color: transparent;
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Answers --------------------------------------------------------------------------- */
+
+.badge {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badge-yes {
+  color: var(--yes);
+  background: var(--yes-bg);
+}
+
+.badge-no {
+  color: var(--no);
+  background: var(--no-bg);
+}
+
+.badge-irrelevant {
+  color: var(--irr);
+  background: var(--irr-bg);
+}
+
+.badge-penalty {
+  color: var(--pen);
+  background: var(--pen-bg);
+}
+
+.badge-win {
+  color: var(--win);
+  background: var(--win-bg);
+}
+
+.feedback:empty {
+  display: none;
+}
+
+.feedback-body {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  animation: pop-in 0.25s ease-out;
+}
+
+@keyframes pop-in {
+  from {
+    transform: translateY(4px);
+    opacity: 0;
+  }
+}
+
+/* History --------------------------------------------------------------------------- */
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.history-item {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-number {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.history-question {
+  overflow-wrap: anywhere;
+}
+
+/* Result ---------------------------------------------------------------------------- */
+
+.result h2 {
+  font-size: 1.5rem;
+  outline: none;
+}
+
+.result-won {
+  border-color: var(--win);
+}
+
+.result-lost {
+  border-color: var(--no);
+}
+
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.share-status {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* Leaderboard ----------------------------------------------------------------------- */
+
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-table th,
+.lb-table td {
+  text-align: left;
+  padding: 0.35rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.lb-table th {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.lb-me {
+  margin-bottom: 0;
+}
+
+.yesterday {
+  margin: 0;
   text-align: center;
 }
 
-.tagline {
-  color: var(--muted);
+/* Status ---------------------------------------------------------------------------- */
+
+.banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
 }
 
-.status-online {
-  color: var(--ok);
+.banner p {
+  margin: 0;
 }
 
-.status-offline {
-  color: var(--bad);
+.banner-info {
+  background: var(--win-bg);
 }
 
-.privacy {
-  margin-top: 3rem;
+.banner-warning {
+  background: var(--pen-bg);
+}
+
+.banner-error {
+  background: var(--no-bg);
+}
+
+.loading,
+.maintenance {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.site-footer {
+  margin-top: 2rem;
   font-size: 0.8rem;
   color: var(--muted);
+  text-align: center;
 }
 
-.privacy a {
+.site-footer a {
   color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

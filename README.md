@@ -2,7 +2,7 @@
 
 Daily AI 10-questions deduction game. Zero login, single player: everyone gets the same secret each game day and at most 10 questions answered by an AI judge.
 
-> Status: Phase 06 (anonymous identity and anti-abuse). Sessions start with an invisible Cloudflare Turnstile check; local development uses Cloudflare's official test keys. See [docs/roadmap.md](docs/roadmap.md).
+> Status: Phase 07 (React frontend). The game is playable locally end to end: start Redis, the backend, and the frontend, then open http://localhost:5173. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Repository layout
 
@@ -106,12 +106,13 @@ npm ci                          # exact versions from package-lock.json
 npm run dev                     # http://localhost:5173
 ```
 
-The dev server proxies `/api` to the backend on port 8000, so start the backend first. The page shows "Backend online" when the health check succeeds.
+The dev server proxies `/api` to the backend on port 8000, so start the backend first. Frontend structure, state flow, and accessibility notes: [docs/frontend.md](docs/frontend.md).
 
 Quality checks:
 
 ```bash
 npm run lint                    # ESLint, zero warnings allowed
+npm test                        # Vitest component and unit tests
 npm run build                   # TypeScript type check (tsc -b) + production build
 ```
 
