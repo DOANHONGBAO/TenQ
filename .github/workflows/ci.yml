@@ -1,0 +1,84 @@
+# Continuous integration: lint, type check, unit/integration/security tests with coverage,
+# frontend tests and E2E, and a container integration test. No secrets, no deploy.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      redis:
+        image: redis:7.2-alpine
+        ports: ["6390:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      TENQ_TEST_REDIS_URL: redis://127.0.0.1:6390/15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - run: uv sync --frozen
+      - run: uv run ruff check . && uv run ruff format --check .
+      - name: Tests with coverage (all)
+        run: uv run pytest --cov --cov-report=term --cov-report=xml:coverage.xml --cov-report=html:htmlcov
+      - name: Business logic coverage gate (>= 80%)
+        run: >-
+          uv run pytest -q --cov=app/models --cov=app/services
+          --cov=app/repositories --cov=app/core --cov-fail-under=80
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: backend-coverage
+          path: |
+            backend/coverage.xml
+            backend/htmlcov
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          CI: "1"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+
+  containers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Container integration test (fresh random local secrets, fake words)
+        run: COMPOSE="docker compose" infra/scripts/integration.sh

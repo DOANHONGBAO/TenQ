@@ -125,6 +125,7 @@ Quality checks:
 ```bash
 npm run lint                    # ESLint, zero warnings allowed
 npm test                        # Vitest component and unit tests
+npm run test:e2e                # Playwright E2E (run `npx playwright install chromium` once)
 npm run build                   # TypeScript type check (tsc -b) + production build
 ```
 

@@ -48,3 +48,4 @@ jar
 
 # Docker Compose environment files (secrets)
 infra/env/*.env
+coverage.xml

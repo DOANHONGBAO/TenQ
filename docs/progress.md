@@ -2,10 +2,16 @@
 
 ## Status
 
-Phase: **Docker and Nginx (owner's Phase 08 brief) — in review** on `feat/docker-infra`. Hints and guess box merged (PR #7).
-Next: owner review; then TLS, Oracle VM provisioning, Vercel rewrite with the origin secret, and CI/CD (roadmap Phase 10 remainder, 02b, 09).
+Phase: **QA / comprehensive automated testing (owner's Phase 09 brief) — in review** on `test/qa-suite`. Docker stack merged (PR #8).
+Next: push so CI runs for the first time; then deployment (TLS, Oracle VM, Vercel rewrite), roadmap 02b items (pyright, request id), and SQLite results.
 
 ## Log
+
+### 2026-10-17 — QA suite (`test/qa-suite`)
+
+Done: 8 new backend tests (`test_qa_hardening.py`: expired judge lock, interrupted Ollama call, parallel same-key submissions, 12 parallel sessions, daily AI budget exhaustion, secret-word non-disclosure across a full game and all read endpoints, Turnstile bypass attempts, origin-secret enforcement); pytest-cov with branch coverage and an 80% business-logic gate; Playwright E2E (7 scenarios × desktop and Pixel 7) with a fake API and Turnstile stub; `infra/scripts/integration.sh` (separate compose project); offline load test (`tools/loadtest_server.py`, `tools/loadtest.py`); `.github/workflows/ci.yml`; `docs/test-report.md` with results, bugs, and risks.
+
+Verified: backend 336 passed, coverage 89% overall and 95.80% business logic; frontend 31 passed, lint and build clean; E2E 14 passed; integration 11/11 (last run after fixing the restart abort); load test 1100 requests, 0 errors, 246 req/s on one worker. CI has not run yet (no push).
 
 ### 2026-10-17 — Docker Compose and Nginx (`feat/docker-infra`)
 
