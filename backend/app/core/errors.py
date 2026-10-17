@@ -126,6 +126,12 @@ class InvalidQuestionAppError(AppError):
     message = "The question is not a valid English yes/no question."
 
 
+class InvalidGuessAppError(AppError):
+    status_code = 422
+    code = "INVALID_GUESS"
+    message = "A guess must be a single English word."
+
+
 class IdempotencyKeyReusedError(AppError):
     status_code = 422
     code = "IDEMPOTENCY_KEY_REUSED"

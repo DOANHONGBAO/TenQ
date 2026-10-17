@@ -9,7 +9,13 @@ export function RulesPanel({ defaultOpen }: { defaultOpen: boolean }) {
           The AI judge answers <b>YES</b>, <b>NO</b>, <b>IRRELEVANT</b>, or <b>PENALTY</b> for
           questions that are not genuine yes/no questions. Every answer uses one question.
         </li>
-        <li>Guess the word with a question such as “Is it a walrus?” to win.</li>
+        <li>
+          Every 2 questions or guesses unlock a <b>hint</b>, from vague to obvious (4 in total).
+        </li>
+        <li>
+          Think you know it? Type the word in the <b>guess box</b>. A guess also uses one of your
+          10 tries.
+        </li>
         <li>Fewer questions and a faster time rank higher. A new word starts at 00:00 UTC.</li>
       </ul>
     </details>

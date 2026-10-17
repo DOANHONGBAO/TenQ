@@ -2,6 +2,8 @@ import type { Api } from '../api/client'
 import { AttemptsMeter } from '../features/game/AttemptsMeter'
 import { Feedback } from '../features/game/Feedback'
 import { GameHeader } from '../features/game/GameHeader'
+import { GuessForm } from '../features/game/GuessForm'
+import { HintsPanel } from '../features/game/HintsPanel'
 import { HistoryList } from '../features/game/HistoryList'
 import { QuestionForm } from '../features/game/QuestionForm'
 import { ResultPanel } from '../features/game/ResultPanel'
@@ -59,8 +61,10 @@ export function GameScreen({ client }: { client: Api }) {
                 <>
                   <QuestionForm />
                   <Feedback last={state.lastAnswer} />
+                  <GuessForm />
                 </>
               )}
+              <HintsPanel game={game} />
               <HistoryList history={game.history} />
             </div>
             <aside className="side-column">

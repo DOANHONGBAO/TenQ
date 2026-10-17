@@ -32,7 +32,7 @@ class SqliteWordRepository:
     def get_entry(self, word: str) -> WordEntry | None:
         with transaction(self._path) as conn:
             row = conn.execute(
-                "SELECT word, part_of_speech, category, definition, attributes_json "
+                "SELECT word, part_of_speech, category, definition, attributes_json, hints_json "
                 "FROM words WHERE word = ?",
                 (word,),
             ).fetchone()
@@ -44,19 +44,28 @@ class SqliteWordRepository:
             category=row[2],
             definition=row[3],
             attributes=tuple(json.loads(row[4])),
+            hints=tuple(json.loads(row[5])),
         )
 
     def replace_words(self, entries: list[WordEntry]) -> None:
         """Replace the whole vocabulary atomically. Pinned days are never touched."""
         rows = [
-            (e.word, e.part_of_speech.value, e.category, e.definition, json.dumps(e.attributes))
+            (
+                e.word,
+                e.part_of_speech.value,
+                e.category,
+                e.definition,
+                json.dumps(e.attributes),
+                json.dumps(e.hints),
+            )
             for e in entries
         ]
         with transaction(self._path) as conn:
             conn.execute("DELETE FROM words")
             conn.executemany(
-                "INSERT INTO words (word, part_of_speech, category, definition, attributes_json) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO words "
+                "(word, part_of_speech, category, definition, attributes_json, hints_json) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 rows,
             )
 

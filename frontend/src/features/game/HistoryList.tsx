@@ -4,7 +4,7 @@ import { AnswerBadge } from './AnswerBadge'
 export function HistoryList({ history }: { history: HistoryEntry[] }) {
   return (
     <section className="card history" aria-labelledby="history-title">
-      <h2 id="history-title">Your questions</h2>
+      <h2 id="history-title">Your questions and guesses</h2>
       {history.length === 0 ? (
         <p className="muted">No questions yet. Start broad: “Is it alive?”</p>
       ) : (
@@ -15,10 +15,17 @@ export function HistoryList({ history }: { history: HistoryEntry[] }) {
                 {entry.number}
               </span>
               <span className="history-question">
-                <span className="sr-only">Question {entry.number}: </span>
+                <span className="sr-only">
+                  {entry.kind === 'guess' ? 'Guess' : 'Question'} {entry.number}:{' '}
+                </span>
+                {entry.kind === 'guess' && (
+                  <span className="history-kind" aria-hidden="true">
+                    Guess:{' '}
+                  </span>
+                )}
                 {entry.question}
               </span>
-              <AnswerBadge answer={entry.answer} />
+              <AnswerBadge answer={entry.answer} kind={entry.kind} />
             </li>
           ))}
         </ol>

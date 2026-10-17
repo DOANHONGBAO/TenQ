@@ -34,8 +34,10 @@ export function describeAskError(error: unknown): ErrorOutcome {
         keepPending: false,
         message: INVALID_REASONS[error.details.reason ?? ''] ?? 'Please ask a short English yes/no question.',
       }
+    case 'INVALID_GUESS':
+      return { tone: 'warning', keepPending: false, message: 'A guess must be a single English word, like “walrus”.' }
     case 'DUPLICATE_QUESTION':
-      return { tone: 'info', keepPending: false, message: 'You already asked that today. Try a different question.' }
+      return { tone: 'info', keepPending: false, message: 'You already tried that today. Try something different.' }
     case 'AI_UNAVAILABLE':
       return {
         tone: 'warning',

@@ -53,6 +53,7 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 python3 -c "import secrets; print(secrets.token_hex(32))"
                                 # and once more for TENQ_PLAYER_HASH_KEY=... (must differ)
 uv run python -m app.scripts.seed_words --dev                # fake words, or:
+uv run python -m app.scripts.prepare_hints secrets/words.json  # once: add editable hints
 uv run python -m app.scripts.seed_words secrets/words.json   # private curated list
 uv run uvicorn app.main:create_app --factory --reload
 ```

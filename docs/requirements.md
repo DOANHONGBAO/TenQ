@@ -53,6 +53,8 @@ The business requirements leave some behavior undefined. The design uses the def
 | OQ-08 | Reveal after the day | The word for a past date can be retrieved after that day ends (UTC). Losing players do not see the word earlier. | Proposed |
 | OQ-09 | Letter/length questions | Allowed, since they are yes/no questions ("Does it start with S?"). | Proposed |
 | OQ-10 | Session lifetime | Anonymous session cookie lasts 365 days; clearing cookies creates a new session (accepted limitation, see threat model T-07). | Proposed |
+| OQ-11 | Progressive hints | Requested by the owner (2026-10-17): every word has 4 prepared hints, hardest first, the last making the word unambiguous. One hint unlocks after every 2 charged attempts (after attempts 2, 4, 6, 8). The server returns only unlocked hints. | Accepted |
+| OQ-12 | Guess box | Requested by the owner (2026-10-17): a separate box for guessing the word directly. A guess is judged by exact comparison (word or simple plural, case-insensitive), not by the AI, and costs one of the 10 attempts; a wrong guess is recorded as `NO`, a repeated wrong guess is refused for free. Questions that name the word still win as before (OQ-03). | Accepted |
 
 ## 5. Out of scope (v1)
 

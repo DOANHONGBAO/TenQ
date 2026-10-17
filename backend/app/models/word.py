@@ -24,6 +24,8 @@ class WordEntry:
     category: str
     definition: str
     attributes: tuple[str, ...]
+    # Progressive hints, hardest first (app.models.hints). Empty = derive from metadata.
+    hints: tuple[str, ...] = ()
 
     def __repr__(self) -> str:
         return f"WordEntry(category={self.category!r}, word=<redacted>)"
@@ -34,6 +36,8 @@ class InvalidWordListError(ValueError):
 
 
 def validate_word_list(entries: list[WordEntry], expected_count: int) -> None:
+    from app.models.hints import hint_problems  # local import: hints depends on WordEntry
+
     """Raise InvalidWordListError unless the list is complete, unique, and well formed."""
     problems: list[str] = []
     if len(entries) != expected_count:
@@ -56,6 +60,7 @@ def validate_word_list(entries: list[WordEntry], expected_count: int) -> None:
             problems.append(f"entry {position}: 1-8 attributes required")
         if any(not 1 <= len(a) <= 40 for a in entry.attributes):
             problems.append(f"entry {position}: attributes must be 1-40 characters")
+        problems.extend(f"entry {position}: {p}" for p in hint_problems(entry.word, entry.hints))
 
     if problems:
         shown = "; ".join(problems[:10])

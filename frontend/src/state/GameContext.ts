@@ -5,6 +5,7 @@ import type { ViewState } from './gameReducer'
 export interface GameContextValue {
   state: ViewState
   ask: (question: string) => Promise<boolean>
+  guess: (word: string) => Promise<boolean>
   refresh: () => Promise<void>
   dismissNotice: () => void
   /** Local time corrected by the server offset, for display only. */

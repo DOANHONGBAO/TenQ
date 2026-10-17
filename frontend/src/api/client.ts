@@ -122,6 +122,14 @@ export const api = {
     })
     return expect(body, isAskResult)
   },
+  async guess(word: string, idempotencyKey: string): Promise<AskResult> {
+    const body = await request('/game/today/guesses', {
+      method: 'POST',
+      body: { guess: word },
+      headers: { 'Idempotency-Key': idempotencyKey },
+    })
+    return expect(body, isAskResult)
+  },
   async leaderboard(limit = 20): Promise<Leaderboard> {
     return expect(await request(`/leaderboard/today?limit=${String(limit)}`), isLeaderboard)
   },

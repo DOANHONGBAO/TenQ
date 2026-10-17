@@ -16,7 +16,7 @@ import asyncio
 import hashlib
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 
 from redis.exceptions import RedisError
@@ -28,6 +28,7 @@ from app.core.errors import (
     DuplicateQuestionError,
     GameFinishedError,
     IdempotencyKeyReusedError,
+    InvalidGuessAppError,
     InvalidQuestionAppError,
     QuestionInProgressError,
     ServiceUnavailableError,
@@ -39,12 +40,22 @@ from app.integrations.ai_judge import (
     JudgeInvalidOutputError,
 )
 from app.models.clock import Clock, game_date_at
-from app.models.game import Answer, GameState, Leaderboard
+from app.models.game import Answer, AttemptKind, GameState, Leaderboard
+from app.models.guess import InvalidGuessError, guess_is_correct, parse_guess
+from app.models.hints import visible_hint_count
 from app.models.question import InvalidQuestionError, mentions_word, parse_question
 from app.repositories.game_store import RedisGameStore, ReserveOutcome
 from app.services.daily_word_service import DailyWordService
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _Attempt:
+    game_date: date
+    player_hash: str
+    idempotency_key: str
+    token: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,12 +92,21 @@ class GameService:
         return game_date_at(self._clock.now())
 
     async def state(self, player_hash: str, game_date: date | None = None) -> GameState:
+        day = game_date or self.today()
         try:
-            return await self._store.get_state(
-                game_date or self.today(), player_hash, self._clock.now()
-            )
+            raw = await self._store.get_state(day, player_hash, self._clock.now())
         except RedisError as exc:
             raise _unavailable(exc) from exc
+        return self._with_hints(raw)
+
+    def _with_hints(self, game: GameState) -> GameState:
+        """Attach the hints this player has unlocked; the server decides how many."""
+        visible = visible_hint_count(game.used)
+        if visible == 0:
+            return game
+        entry = self._words.entry_for(self._words.puzzle_for(game.game_date))
+        hints = entry.hints[:visible] if entry is not None else ()
+        return replace(game, hints=hints)
 
     async def leaderboard(self, limit: int, player_hash: str | None) -> Leaderboard:
         try:
@@ -112,20 +132,58 @@ class GameService:
                 f"{game_date.isoformat()}|{puzzle.word_list_sha256}|{puzzle.selection_version}".encode()
             ).hexdigest()[:32],
         )
-        token = uuid.uuid4().hex
-        body_hash = hashlib.sha256(question.text.encode()).hexdigest()
-        scope = {
-            "game_date": game_date,
-            "player_hash": player_hash,
-            "idempotency_key": idempotency_key,
-        }
+        attempt = _Attempt(game_date, player_hash, idempotency_key, uuid.uuid4().hex)
+        replay = await self._reserve(attempt, f"q:{question.text}", question.qhash)
+        if replay is not None:
+            return replay
 
         try:
+            answer = await asyncio.wait_for(
+                self._judge.judge(context, question), timeout=self._judge_timeout_s
+            )
+        except JudgeInvalidOutputError as exc:
+            await self._safe_release(attempt)
+            logger.warning("judge output rejected: %s", exc)
+            raise AIInvalidResponseError() from exc
+        except (AIJudgeError, TimeoutError) as exc:
+            await self._safe_release(attempt)
+            logger.warning("judge unavailable: %s", type(exc).__name__)
+            raise AIUnavailableError() from exc
+        except BaseException:
+            await self._safe_release(attempt)
+            raise
+
+        if answer is Answer.WIN and not mentions_word(question, puzzle.word):
+            await self._safe_release(attempt)
+            logger.warning("judge returned an unverifiable WIN; question not charged")
+            raise AIInvalidResponseError()
+        return await self._commit(attempt, answer, question.text, AttemptKind.QUESTION)
+
+    async def guess(self, player_hash: str, raw_guess: str, idempotency_key: str) -> AskResult:
+        """A direct guess of the word: costs one attempt, judged by exact comparison (no AI)."""
+        try:
+            guess = parse_guess(raw_guess)
+        except InvalidGuessError as exc:
+            raise InvalidGuessAppError(details={"reason": exc.reason}) from exc
+        game_date = self.today()
+        puzzle = self._words.puzzle_for(game_date)
+        attempt = _Attempt(game_date, player_hash, idempotency_key, uuid.uuid4().hex)
+        replay = await self._reserve(attempt, f"g:{guess.word}", guess.qhash)
+        if replay is not None:
+            return replay
+        answer = Answer.WIN if guess_is_correct(guess, puzzle.word) else Answer.NO
+        return await self._commit(attempt, answer, guess.text, AttemptKind.GUESS)
+
+    async def _reserve(self, attempt: _Attempt, body: str, qhash: str) -> AskResult | None:
+        """Atomically reserve one attempt. Returns a replayed result, raises, or None."""
+        try:
             reserved = await self._store.reserve(
-                **scope,
-                body_hash=body_hash,
-                qhash=question.qhash,
-                token=token,
+                game_date=attempt.game_date,
+                player_hash=attempt.player_hash,
+                idempotency_key=attempt.idempotency_key,
+                body_hash=hashlib.sha256(body.encode()).hexdigest(),
+                qhash=qhash,
+                token=attempt.token,
                 now=self._clock.now(),
                 lease_ms=self._lease_ms,
             )
@@ -136,7 +194,7 @@ class GameService:
             case ReserveOutcome.REPLAY:
                 if reserved.number is None or reserved.answer is None:  # pragma: no cover
                     raise ServiceUnavailableError()
-                game = await self.state(player_hash, game_date)
+                game = await self.state(attempt.player_hash, attempt.game_date)
                 return AskResult(reserved.number, reserved.answer, game, replayed=True)
             case ReserveOutcome.KEY_REUSED:
                 raise IdempotencyKeyReusedError()
@@ -149,46 +207,39 @@ class GameService:
             case ReserveOutcome.DUPLICATE:
                 raise DuplicateQuestionError()
             case ReserveOutcome.RESERVED:
-                pass
+                return None
 
-        try:
-            answer = await asyncio.wait_for(
-                self._judge.judge(context, question), timeout=self._judge_timeout_s
-            )
-        except JudgeInvalidOutputError as exc:
-            await self._safe_release(scope, token)
-            logger.warning("judge output rejected: %s", exc)
-            raise AIInvalidResponseError() from exc
-        except (AIJudgeError, TimeoutError) as exc:
-            await self._safe_release(scope, token)
-            logger.warning("judge unavailable: %s", type(exc).__name__)
-            raise AIUnavailableError() from exc
-        except BaseException:
-            await self._safe_release(scope, token)
-            raise
-
-        if answer is Answer.WIN and not mentions_word(question, puzzle.word):
-            await self._safe_release(scope, token)
-            logger.warning("judge returned an unverifiable WIN; question not charged")
-            raise AIInvalidResponseError()
-
+    async def _commit(
+        self, attempt: _Attempt, answer: Answer, text: str, kind: AttemptKind
+    ) -> AskResult:
         try:
             committed = await self._store.commit(
-                **scope, token=token, now=self._clock.now(), answer=answer, question=question.text
+                game_date=attempt.game_date,
+                player_hash=attempt.player_hash,
+                idempotency_key=attempt.idempotency_key,
+                token=attempt.token,
+                now=self._clock.now(),
+                answer=answer,
+                question=text,
+                kind=kind,
             )
         except RedisError as exc:
-            # The lease simply expires; the question was never charged.
+            # The lease simply expires; the attempt was never charged.
             raise _unavailable(exc) from exc
         if not committed.committed:
-            logger.warning("lease expired before commit; question not charged")
+            logger.warning("lease expired before commit; attempt not charged")
             raise AIUnavailableError()
-
-        game = await self.state(player_hash, game_date)
+        game = await self.state(attempt.player_hash, attempt.game_date)
         return AskResult(committed.number, answer, game, replayed=False)
 
-    async def _safe_release(self, scope: dict[str, object], token: str) -> None:
+    async def _safe_release(self, attempt: _Attempt) -> None:
         try:
-            await self._store.release(**scope, token=token)  # type: ignore[arg-type]
+            await self._store.release(
+                game_date=attempt.game_date,
+                player_hash=attempt.player_hash,
+                idempotency_key=attempt.idempotency_key,
+                token=attempt.token,
+            )
         except RedisError:
             logger.warning("release failed; the lease will expire on its own")
 

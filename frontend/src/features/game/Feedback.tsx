@@ -16,8 +16,15 @@ export function Feedback({ last }: { last: LastAnswer | null }) {
     <div className="feedback" aria-live="polite" aria-atomic="true">
       {last && (
         <p className={`feedback-body feedback-${last.answer.toLowerCase()}`}>
-          <span className="sr-only">Question {last.number}: </span>
-          <AnswerBadge answer={last.answer} /> <span>{EXPLAIN[last.answer]}</span>
+          <span className="sr-only">
+            {last.kind === 'guess' ? 'Guess' : 'Question'} {last.number}:{' '}
+          </span>
+          <AnswerBadge answer={last.answer} kind={last.kind} />{' '}
+          <span>
+            {last.kind === 'guess' && last.answer === 'NO'
+              ? `“${last.question}” is not the word. Keep going!`
+              : EXPLAIN[last.answer]}
+          </span>
         </p>
       )}
     </div>

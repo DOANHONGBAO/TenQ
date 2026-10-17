@@ -6,7 +6,15 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.clock import next_reset_at
-from app.models.game import Answer, GameState, GameStatus, Leaderboard, LeaderboardEntry
+from app.models.game import (
+    Answer,
+    AttemptKind,
+    GameState,
+    GameStatus,
+    Leaderboard,
+    LeaderboardEntry,
+)
+from app.models.hints import HINT_COUNT, HINT_EVERY
 from app.schemas.common import UtcTimestamp
 
 
@@ -19,11 +27,20 @@ class AskRequest(BaseModel):
     question: str = Field(max_length=1000)
 
 
+class GuessRequest(BaseModel):
+    """Only the guessed word. Any other field is rejected."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    guess: str = Field(max_length=100)
+
+
 class HistoryEntryOut(BaseModel):
     number: int
-    question: str
+    question: str  # the question text, or the guessed word for kind == "guess"
     answer: Answer
     asked_at: UtcTimestamp
+    kind: AttemptKind
 
 
 class GameStateOut(BaseModel):
@@ -37,6 +54,10 @@ class GameStateOut(BaseModel):
     started_at: UtcTimestamp | None
     finished_at: UtcTimestamp | None
     duration_ms: int | None
+    hints: list[str]
+    hints_total: int
+    # Attempts until the next hint unlocks; null when all hints are shown or the game is over.
+    next_hint_in: int | None
     server_time: UtcTimestamp
     next_reset_at: UtcTimestamp
 
@@ -50,13 +71,20 @@ class GameStateOut(BaseModel):
             in_progress=state.in_progress,
             history=[
                 HistoryEntryOut(
-                    number=h.number, question=h.question, answer=h.answer, asked_at=h.asked_at
+                    number=h.number,
+                    question=h.question,
+                    answer=h.answer,
+                    asked_at=h.asked_at,
+                    kind=h.kind,
                 )
                 for h in state.history
             ],
             started_at=state.started_at,
             finished_at=state.finished_at,
             duration_ms=state.duration_ms,
+            hints=list(state.hints),
+            hints_total=HINT_COUNT,
+            next_hint_in=_next_hint_in(state),
             server_time=now,
             next_reset_at=next_reset_at(now),
         )
@@ -109,3 +137,9 @@ class LeaderboardOut(BaseModel):
             me=me,
             total_winners=board.total_winners,
         )
+
+
+def _next_hint_in(state: GameState) -> int | None:
+    if state.status.is_finished or len(state.hints) >= HINT_COUNT:
+        return None
+    return HINT_EVERY - state.used % HINT_EVERY

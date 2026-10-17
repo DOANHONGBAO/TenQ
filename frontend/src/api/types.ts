@@ -3,12 +3,14 @@
 
 export type Answer = 'YES' | 'NO' | 'IRRELEVANT' | 'PENALTY' | 'WIN'
 export type GameStatus = 'not_started' | 'in_progress' | 'won' | 'lost'
+export type AttemptKind = 'question' | 'guess'
 
 export interface HistoryEntry {
   number: number
   question: string
   answer: Answer
   asked_at: string
+  kind: AttemptKind
 }
 
 export interface GameState {
@@ -22,6 +24,9 @@ export interface GameState {
   started_at: string | null
   finished_at: string | null
   duration_ms: number | null
+  hints: string[]
+  hints_total: number
+  next_hint_in: number | null
   server_time: string
   next_reset_at: string
 }
@@ -68,7 +73,14 @@ export function isAnswer(value: unknown): value is Answer {
 }
 
 function isHistoryEntry(v: unknown): v is HistoryEntry {
-  return isObj(v) && isNum(v.number) && isStr(v.question) && isAnswer(v.answer) && isStr(v.asked_at)
+  return (
+    isObj(v) &&
+    isNum(v.number) &&
+    isStr(v.question) &&
+    isAnswer(v.answer) &&
+    isStr(v.asked_at) &&
+    (v.kind === 'question' || v.kind === 'guess')
+  )
 }
 
 export function isGameState(v: unknown): v is GameState {
@@ -86,6 +98,10 @@ export function isGameState(v: unknown): v is GameState {
     isStrOrNull(v.started_at) &&
     isStrOrNull(v.finished_at) &&
     (v.duration_ms === null || isNum(v.duration_ms)) &&
+    Array.isArray(v.hints) &&
+    v.hints.every(isStr) &&
+    isNum(v.hints_total) &&
+    (v.next_hint_in === null || isNum(v.next_hint_in)) &&
     isStr(v.server_time) &&
     isStr(v.next_reset_at)
   )

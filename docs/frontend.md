@@ -20,7 +20,9 @@ main.tsx
          │  │  ├─ AttemptsMeter  10 indicators coloured by answer, "N of 10 questions left"
          │  │  ├─ QuestionForm   input (150 chars), Ask button, "Judging…" state
          │  │  ├─ Feedback       last answer in an aria-live region
+         │  │  ├─ GuessForm      direct guess of the word (costs one try, exact match on server)
          │  │  ├─ ResultPanel    win / lose screen, focus moves to it, spoiler-free share
+         │  │  ├─ HintsPanel     hints unlocked by the server (1 per 2 tries), next-hint counter
          │  │  └─ HistoryList    newest first, answer badges
          │  └─ side column
          │     ├─ LeaderboardPanel  top 10, caller rank, refreshes every minute

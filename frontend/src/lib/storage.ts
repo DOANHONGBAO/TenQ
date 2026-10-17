@@ -6,6 +6,7 @@ const KEY = 'tenq.pendingSubmission'
 
 export interface PendingSubmission {
   gameDate: string
+  kind: 'question' | 'guess'
   question: string
   idempotencyKey: string
 }
@@ -15,6 +16,8 @@ function isPending(v: unknown): v is PendingSubmission {
     typeof v === 'object' &&
     v !== null &&
     'gameDate' in v &&
+    'kind' in v &&
+    (v.kind === 'question' || v.kind === 'guess') &&
     'question' in v &&
     'idempotencyKey' in v &&
     typeof v.gameDate === 'string' &&
