@@ -1,8 +1,8 @@
 # AI Judge Checklist
 
 ## Output validation
-- [ ] Output reduced to exactly one label of `YES | NO | IRRELEVANT | PENALTY | WIN` (ADR 0010); parser regex `^\W*(YES|NO|IRRELEVANT|PENALTY|WIN)\W*$`, case-insensitive
-- [ ] Anything else (prose, JSON, empty, several labels) → typed `JudgeInvalidOutputError` → `502 AI_INVALID_RESPONSE`, no charge
+- [ ] Output is exactly one JSON object `{"result": LABEL}` validated by `JudgeOutput` (ADR 0013); optional `message` is never returned or logged
+- [ ] Anything else (prose, bare label, extra fields, empty, unknown enum) → typed `JudgeInvalidOutputError` → `502 AI_INVALID_RESPONSE`, no charge
 - [ ] Output length bounded; oversized output rejected before parsing
 - [ ] Only the label reaches the player; model free text is never returned or logged
 - [ ] Does not depend on Ollama structured outputs (`format`) being honored

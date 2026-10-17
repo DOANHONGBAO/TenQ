@@ -24,14 +24,16 @@ Prefix `tenq:v1:`. All per-day keys expire at **00:00 UTC two days after `game_d
 
 | Key | Type | Content | Expiry |
 |-----|------|---------|--------|
-| `game:{date}:{player_hash}` | HASH | `status` (`active`/`won`/`lost`), `used`, `started_at_ms`, `finished_at_ms`, `lease_token`, `lease_until_ms`, `lease_qhash` | day + 2 |
+| `game:{date}:{player_hash}` | HASH | `status` (`not_started`/`in_progress`/`won`/`lost`), `used`, `started_at_ms`, `finished_at_ms`, `lb_member`, `lease_token`, `lease_until_ms`, `lease_qhash`, `lease_started_ms` | day + 2 |
 | `hist:{date}:{player_hash}` | LIST | JSON `{"n":1,"q":"Is it alive?","a":"NO","t":1792...}` per committed question | day + 2 |
 | `qset:{date}:{player_hash}` | SET | `qhash` of committed questions | day + 2 |
-| `idem:{date}:{player_hash}:{key}` | STRING | JSON `{"state":"pending"|"done","body":"<sha256>","resp":{...}}` | day + 2 |
-| `judge:{date}:{judge_key}` | STRING | One label | day + 2 |
-| `lb:{date}` | ZSET | member `player_hash`, score `questions * 1e9 + duration_ms` | day + 2 |
+| `idem:{date}:{player_hash}:{key}` | HASH | `state` (`pending`/`done`), `body` (SHA-256 of the question), `token` (while pending), `number` and `answer` (when done) | day + 2 |
+| `judge:{date}:{judge_key}` | STRING | One validated label; `judge_key = sha256(date, puzzle_id, normalized question, prompt_version, model)` | day + 2 |
+| `judgelock:{date}:{judge_key}` | STRING | Stampede lock token | 25 s |
+| `lb:{date}` | ZSET | member `{finished_at_ms:013d}:{player_hash}`, score `questions * 1e9 + duration_ms` | day + 2 |
 | `rl:{scope}:{subject}:{window}` | STRING | Fixed-window counter | window length |
-| `ai:budget:{date}` | STRING | AI calls made today | day + 2 |
+| `aibudget:day:{date}` | STRING | AI HTTP attempts made today (retries included) | day + 2 |
+| `aibudget:hour:{date}T{HH}` | STRING | AI HTTP attempts in that UTC hour | 2 h |
 | `results:retry` | LIST | JSON results whose SQLite write failed | none (drained by worker) |
 
 The secret word is **not** stored in Redis; the API holds it in memory, loaded from SQLite.
@@ -42,20 +44,20 @@ All scripts receive the current server time as an argument (injectable clock, de
 
 `reserve(game, hist, qset, idem, rl_player, rl_ip; now_ms, lease_ms, lease_token, body_hash, qhash, max_questions, limits...)`
 
-1. If `idem` exists: `done` with same `body_hash` -> return `REPLAY` + stored response; different hash -> `IDEMPOTENCY_KEY_REUSED`; `pending` -> `QUESTION_IN_PROGRESS`.
-2. Increment rate limit counters; over limit -> `RATE_LIMITED` (counters are not incremented for rejected requests in step 1).
-3. If `game` missing -> create with `status=active`, `used=0`, `started_at_ms=now_ms`, `EXPIREAT`.
+1. If `idem` exists: different `body_hash` -> `IDEMPOTENCY_KEY_REUSED`; `done` -> `REPLAY` with stored `number` and `answer`; `pending` that owns the live lease -> `QUESTION_IN_PROGRESS`; `pending` left by a crashed request (lease gone or expired) -> deleted and processing continues.
+2. Rate limit counters: Phase 06.
+3. If `game` missing -> treat as `not_started`, `used=0` (written together with the lease in step 7).
 4. `status` `won` -> `GAME_FINISHED`; `lost` or `used >= max` -> `ATTEMPT_LIMIT_REACHED`.
 5. `lease_until_ms > now_ms` -> `QUESTION_IN_PROGRESS`.
 6. `SISMEMBER qset qhash` -> `DUPLICATE_QUESTION`.
-7. Set `lease_token`, `lease_until_ms = now_ms + lease_ms`, `lease_qhash`; write `idem` as `pending`. Return `RESERVED`.
+7. Set `lease_token`, `lease_until_ms = now_ms + lease_ms`, `lease_qhash`, `lease_started_ms`; write `idem` as `pending` with the token. Return `RESERVED`.
 
 `commit(game, hist, qset, idem, lb; now_ms, lease_token, answer, entry_json, response_json, max_questions)`
 
 1. `lease_token` mismatch or lease expired -> `STALE_LEASE` (nothing changes; caller returns `AI_UNAVAILABLE`).
-2. `used += 1`; `RPUSH hist`; `SADD qset lease_qhash`.
-3. `answer == WIN` -> `status=won`, `finished_at_ms`, `ZADD lb NX`. Else if `used == max` -> `status=lost`, `finished_at_ms`.
-4. Clear lease fields; set `idem` to `done` with `response_json`. Return new state.
+2. `used += 1`; on the first charge set `started_at_ms = lease_started_ms`; `RPUSH hist`; `SADD qset lease_qhash`.
+3. `answer == WIN` -> `status=won`, `finished_at_ms`, `ZADD lb NX` with member `{finished_at_ms:013d}:{player_hash}` (stored as `lb_member`). Else if `used == max` -> `status=lost`, `finished_at_ms`. Else `status=in_progress`.
+4. Clear lease fields; set `idem` to `done` with `number` and `answer`. Return `used` and `status`.
 
 `release(game, idem; lease_token)`
 
@@ -69,7 +71,7 @@ About 2 KB per active player per day (hash, 10 history entries, set, idempotency
 
 ### 2.4 Leaderboard score
 
-`score = questions * 1_000_000_000 + duration_ms`. `duration_ms` is below 86,400,000 within one day, so questions always dominate. The maximum score (about 1.1e10) is far below 2^53, so the float score is exact. `ZRANGE lb:{date} 0 N-1 WITHSCORES` returns the ranking; `ZRANK` returns the caller's rank.
+`score = questions * 1_000_000_000 + duration_ms`. `duration_ms` stays far below 1e9, so questions always dominate. The maximum score (about 1.1e10) is far below 2^53, so the float score is exact. Redis orders equal scores by member, byte by byte; because the member starts with the zero-padded `finished_at_ms`, ties go to whoever finished first, then to the player hash, so the ranking is total and deterministic. `ZRANGE lb:{date} 0 N-1 WITHSCORES` returns the ranking; `ZRANK` returns the caller's rank.
 
 ## 3. SQLite
 

@@ -117,15 +117,18 @@ sequenceDiagram
 
 ### 4.3 AI judge lifecycle
 
-1. **Normalize**: trim, collapse whitespace, lower-case for comparison and hashing; the original text is kept for display.
-2. **Cache lookup**: key = SHA-256 of `game_date | normalized question | prompt_version | model`. The cache is global per day, so every player gets the same answer to the same question (fairness) and repeated questions cost no quota.
-3. **Budget and concurrency**: a global daily AI call budget (Redis counter) and an in-process concurrency limit (asyncio semaphore, default 4) protect the free quota. Exceeding either returns `AI_UNAVAILABLE` without charging.
-4. **Call**: `POST https://ollama.com/api/chat`, `Authorization: Bearer $OLLAMA_API_KEY`, `stream: false`, temperature 0, minimal output length. Connect timeout 3 s, read timeout 12 s, total deadline 20 s. Retries: at most 2, only on timeout, HTTP 429 (honoring `Retry-After` within the deadline), and 5xx, with jittered exponential backoff.
-5. **Parse**: Ollama Cloud structured outputs are not relied on ([ADR 0010](decisions/0010-ai-judge-output-contract.md)). The prompt requires a single label. The parser accepts content matching `^\W*(YES|NO|IRRELEVANT|PENALTY|WIN)\W*$` (case-insensitive) and nothing else. One stricter re-ask is allowed within the deadline if parsing fails.
-6. **Verify WIN**: accepted only if the secret word (or its simple plural) appears as a whole token in the normalized question. Otherwise the result is invalid.
-7. **Result**: a valid label is committed; anything else is released without charge (BR-09).
+Implemented in `backend/app/services/judge_service.py` ([ADR 0013](decisions/0013-hybrid-judge-json-contract.md)):
 
-The player only ever receives a label, never model free text. A prompt injection can therefore at worst change a label, and the label `WIN` cannot be forged because of step 6.
+1. **Validate** (GameService): length 3 to 150, printable ASCII, ends with `?`; failures are `422 INVALID_QUESTION`, free.
+2. **Deterministic PENALTY**: open-ended questions, several questions, and manipulation patterns (`models/judge_rules.py`). No model call.
+3. **Deterministic WIN**: a direct guess of the word ("Is it a X?", "Is the secret word X?"). No model call.
+4. **Cache lookup**: `judge:{date}:{sha256(date | puzzle_id | normalized question | prompt_version | model)}`, shared by all players for the day.
+5. **Model call on a miss**: single-flight per process plus a Redis lock across processes; circuit breaker; hourly and daily budget (every HTTP attempt counts); concurrency limit (default 1). `POST https://ollama.com/api/chat`, `stream: false`, temperature 0. Connect 3 s, read 12 s, overall deadline; at most 2 retries on timeout, connection errors, 429 (Retry-After), and 5xx.
+6. **Validate**: `{"result": LABEL}` parsed with Pydantic; one stricter re-ask; `WIN` only if the word is a token of the question.
+7. **Commit**: GameService charges the attempt (the judge never touches attempts or the leaderboard).
+8. **Cache**: the validated label is stored with `SET NX` until the day's cleanup instant. Failures are never cached.
+
+The player only ever receives a label, never model text. A prompt injection can therefore at worst change a label, and `WIN` cannot be forged because of step 6.
 
 ### 4.4 Game day and the secret word
 
@@ -149,7 +152,7 @@ Design ([ADR 0003](decisions/0003-atomic-game-state-redis-lua.md)): all state tr
 
 | Script | Atomic checks and effects |
 |--------|---------------------------|
-| `reserve` | Idempotency key: replay stored response, or reject if pending or body hash differs. Game must be `active` (create it with `started_at` if absent). `used < 10`. No unexpired lease (one in-flight question per player). Normalized question not already asked. Then: set lease token and `lease_until`, record idempotency key as pending. |
+| `reserve` | Idempotency key: replay stored response, or reject if pending or body hash differs. Game must not be `won`/`lost`. `used < 10`. No unexpired lease (one in-flight question per player). Normalized question not already asked. Then: set lease token and `lease_until`, record idempotency key as pending. |
 | `commit` | Lease token must match. `used += 1` (also for `WIN`, BR-08), append history, cache response under the idempotency key. If `WIN`: status `won`, `finished_at`, leaderboard `ZADD NX`. Else if `used == 10`: status `lost`. Clear lease. |
 | `release` | Lease token must match. Clear lease and delete the pending idempotency record so the client may retry with the same key. Nothing is charged. |
 

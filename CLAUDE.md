@@ -41,8 +41,10 @@ Tools run on the Fedora host (inside the Ubuntu distrobox, prefix them with `dis
 uv sync                                                    # install exact versions from uv.lock
 uv run uvicorn app.main:create_app --factory --reload      # http://127.0.0.1:8000/api/v1/health
 uv run ruff check . && uv run ruff format --check .        # lint + format check
-uv run pytest                                              # tests
+uv run pytest                                              # tests (Redis tests need tenq-redis-test on :6390)
 uv run python -m app.scripts.seed_words --dev               # seed fake words (or: secrets/words.json)
+uv run python -m app.scripts.evaluate_judge                 # judge accuracy report (mock; --live costs quota)
+TENQ_LIVE_AI=1 uv run pytest -m live_ai                     # opt-in real Ollama smoke test (2 requests)
 
 # Frontend (from frontend/)
 npm ci                                                     # install exact versions from package-lock.json

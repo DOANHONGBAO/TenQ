@@ -7,10 +7,10 @@ Every phase must keep the code typed, tested, and readable for a public reposito
 | 01 | Requirements and architecture (this document set) | Done |
 | 02 | Repository and local development setup | Done (PR #2) |
 | 02b | Backend foundation remainder and CI | Planned |
-| 03 | Daily secret word engine | In review |
+| 03 | Daily secret word engine | Done (PR #3) |
 | 03b | Remaining domain rules (pure logic) | Planned |
-| 04 | Redis game store and concurrency | Planned |
-| 05 | AI judge adapter | Planned |
+| 04 | Game engine and Redis atomic state | Awaiting commit |
+| 05 | Ollama AI judge and semantic caching | In review |
 | 06 | Identity, Turnstile, rate limiting | Planned |
 | 07 | API endpoints, SQLite, leaderboard | Planned |
 | 08 | Frontend | Planned |
@@ -61,17 +61,18 @@ Acceptance criteria:
 - Every rule in requirements OQ-03 and OQ-04 has a positive and a negative test.
 - Coverage of `models/` is at least 90%.
 
-## Phase 04 — Redis game store and concurrency
+## Phase 04 — Game engine and Redis atomic state
 
-Scope: Lua `reserve` / `commit` / `release`, Redis adapter, idempotency, duplicate detection, EXPIREAT, rate limit counters.
+Scope (owner brief, 2026-10-17): state machine (`not_started`, `in_progress`, `won`, `lost`); Lua `reserve` / `commit` / `release`; idempotency keys; one in-flight question per player; duplicate detection; history; daily leaderboard ZSET with deterministic tie-breaking; EXPIREAT at reset + 1 day; minimal signed anonymous session cookie; deterministic question checks (OQ-04); `FakeAIJudge`; `GET /game/today`, `POST /game/today/questions`, `GET /leaderboard/today`. Rate limits move to Phase 06; Redis persistence to Phase 10.
 
 Acceptance criteria:
 - 50 concurrent reserves for one fresh player result in exactly one lease.
-- Simulated full games never exceed 10 charged questions under concurrent load.
-- Replay returns the stored response; reused key with a different body is rejected.
-- Expired lease is ignored; stale commit is rejected and charges nothing.
+- 50 concurrent submissions never exceed 10 charged questions.
+- Replay returns the stored result; reused key with a different body is rejected.
+- Expired lease is ignored; stale commit is rejected and charges nothing; Redis errors return 503 and charge nothing.
+- A request that crosses 00:00 UTC commits to the day it started on.
 
-Tests: `docker compose -f infra/compose.dev.yml up -d redis && uv run pytest tests/integration -m redis`
+Tests: `podman run -d --name tenq-redis-test -p 127.0.0.1:6390:6379 docker.io/library/redis:7.2-alpine && uv run pytest`
 
 ## Phase 05 — AI judge adapter
 
