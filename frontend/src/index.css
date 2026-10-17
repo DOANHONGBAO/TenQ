@@ -440,6 +440,56 @@ a {
   }
 }
 
+/* Guess and hints ------------------------------------------------------------------- */
+
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--fg);
+  border-color: var(--border);
+}
+
+.guess {
+  border-style: dashed;
+}
+
+.hints h2 {
+  display: flex;
+  justify-content: space-between;
+}
+
+.hint-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.hint {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: var(--win-bg);
+  animation: pop-in 0.25s ease-out;
+}
+
+.hint-number {
+  font-weight: 800;
+  color: var(--win);
+}
+
+.hint-next {
+  margin: 0.5rem 0 0;
+}
+
+.history-kind {
+  font-weight: 700;
+  color: var(--muted);
+}
+
 /* History --------------------------------------------------------------------------- */
 
 .history-list {

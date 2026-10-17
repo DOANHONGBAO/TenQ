@@ -216,6 +216,7 @@ describe('end of game', () => {
       question: `Is it number ${String(i)}?`,
       answer: 'NO' as const,
       asked_at: '2026-10-20T11:00:00.000Z',
+      kind: 'question' as const,
     }))
     const server = createFakeServer({ hasSession: true, history, status: 'lost' })
     renderApp(server)
@@ -272,5 +273,67 @@ describe('leaderboard', () => {
     expect(await within(board).findByText('Player-ABC123')).toBeInTheDocument()
     expect(within(board).getByText('1:01')).toBeInTheDocument()
     expect(within(board).getByText(/you are/i)).toHaveTextContent('#1 of 1')
+  })
+})
+
+describe('hints and guesses', () => {
+  async function guessWord(user: ReturnType<typeof userEvent.setup>, word: string) {
+    const input = screen.getByLabelText(/guess the word/i)
+    await user.clear(input)
+    await user.type(input, word)
+    await user.click(screen.getByRole('button', { name: /^guess$/i }))
+  }
+
+  it('unlocks one hint after every two tries', async () => {
+    const server = createFakeServer({ hasSession: true })
+    const { user } = renderApp(server)
+    await ready()
+    const hints = screen.getByRole('region', { name: /hints/i })
+    expect(within(hints).getByText(/next hint after 2 more tries/i)).toBeInTheDocument()
+    expect(within(hints).queryByRole('listitem')).not.toBeInTheDocument()
+
+    await askQuestion(user, 'Is it alive?')
+    expect(await within(hints).findByText(/next hint after 1 more try/i)).toBeInTheDocument()
+    await guessWord(user, 'penguin') // guesses count towards hints too
+
+    expect(await within(hints).findByText('Hint one: vague.')).toBeInTheDocument()
+    expect(within(hints).queryByText('Hint two: a category.')).not.toBeInTheDocument()
+    expect(hints).toHaveTextContent('1/4')
+  })
+
+  it('a wrong guess costs one try and is labelled in the history', async () => {
+    const server = createFakeServer({ hasSession: true })
+    const { user } = renderApp(server)
+    await ready()
+
+    await guessWord(user, 'penguin')
+
+    expect(await screen.findByText(/“penguin” is not the word/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /questions left/i })).toHaveTextContent('9 of 10')
+    const history = screen.getByRole('region', { name: /questions and guesses/i })
+    expect(within(history).getByText('Wrong')).toBeInTheDocument()
+    expect(within(history).getByText(/guess:/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/guess the word/i)).toHaveValue('')
+  })
+
+  it('a correct guess wins the game', async () => {
+    const server = createFakeServer({ hasSession: true })
+    const { user } = renderApp(server)
+    await ready()
+
+    await guessWord(user, 'Walrus')
+
+    expect(await screen.findByRole('heading', { name: /you got it/i })).toBeInTheDocument()
+    expect(screen.queryByLabelText(/guess the word/i)).not.toBeInTheDocument()
+    expect(server.api.guess).toHaveBeenCalledTimes(1)
+  })
+
+  it('explains an invalid guess without charging', async () => {
+    const server = createFakeServer({ hasSession: true })
+    const { user } = renderApp(server)
+    await ready()
+    await guessWord(user, 'two words')
+    expect(await screen.findByText(/single english word/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /questions left/i })).toHaveTextContent('10 of 10')
   })
 })

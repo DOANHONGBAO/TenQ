@@ -11,7 +11,7 @@ from app.api.deps import (
     RequiredPlayer,
 )
 from app.core.errors import BadRequestError
-from app.schemas.game import AskRequest, AskResponse, GameStateOut, LeaderboardOut
+from app.schemas.game import AskRequest, AskResponse, GameStateOut, GuessRequest, LeaderboardOut
 
 router = APIRouter(tags=["game"])
 
@@ -46,6 +46,27 @@ async def ask_question(
 ) -> AskResponse:
     key = _check_idempotency_key(idempotency_key)
     result = await service.ask(player, body.question, key)
+    response.headers["Cache-Control"] = "no-store"
+    if result.replayed:
+        response.headers["Idempotent-Replayed"] = "true"
+    return AskResponse(
+        number=result.number,
+        answer=result.answer,
+        game=GameStateOut.build(result.game, service.now()),
+    )
+
+
+@router.post("/game/today/guesses", response_model=AskResponse)
+async def guess_word(
+    body: GuessRequest,
+    service: GameServiceDep,
+    player: QuestionPlayer,
+    response: Response,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> AskResponse:
+    """Guess the word directly. Costs one of the 10 attempts; correct = WIN, wrong = NO."""
+    key = _check_idempotency_key(idempotency_key)
+    result = await service.guess(player, body.guess, key)
     response.headers["Cache-Control"] = "no-store"
     if result.replayed:
         response.headers["Idempotent-Replayed"] = "true"

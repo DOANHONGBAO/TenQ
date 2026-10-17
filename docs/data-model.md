@@ -25,8 +25,8 @@ Prefix `tenq:v1:`. All per-day keys expire at **00:00 UTC two days after `game_d
 | Key | Type | Content | Expiry |
 |-----|------|---------|--------|
 | `game:{date}:{player_hash}` | HASH | `status` (`not_started`/`in_progress`/`won`/`lost`), `used`, `started_at_ms`, `finished_at_ms`, `lb_member`, `lease_token`, `lease_until_ms`, `lease_qhash`, `lease_started_ms` | day + 2 |
-| `hist:{date}:{player_hash}` | LIST | JSON `{"n":1,"q":"Is it alive?","a":"NO","t":1792...}` per committed question | day + 2 |
-| `qset:{date}:{player_hash}` | SET | `qhash` of committed questions | day + 2 |
+| `hist:{date}:{player_hash}` | LIST | JSON `{"n":1,"q":"Is it alive?","a":"NO","t":1792...,"k":"question"}` per charged attempt (`k` = `question` or `guess`) | day + 2 |
+| `qset:{date}:{player_hash}` | SET | `qhash` of charged questions and `sha256("guess:" + word)` of guesses | day + 2 |
 | `idem:{date}:{player_hash}:{key}` | HASH | `state` (`pending`/`done`), `body` (SHA-256 of the question), `token` (while pending), `number` and `answer` (when done) | day + 2 |
 | `judge:{date}:{judge_key}` | STRING | One validated label; `judge_key = sha256(date, puzzle_id, normalized question, prompt_version, model)` | day + 2 |
 | `judgelock:{date}:{judge_key}` | STRING | Stampede lock token | 25 s |
@@ -100,7 +100,8 @@ CREATE TABLE words (
     part_of_speech  TEXT NOT NULL CHECK (part_of_speech IN ('noun', 'verb', 'adjective', 'adverb')),
     category        TEXT NOT NULL,
     definition      TEXT NOT NULL,
-    attributes_json TEXT NOT NULL
+    attributes_json TEXT NOT NULL,
+    hints_json      TEXT NOT NULL DEFAULT '[]'   -- migration 0002: 4 hints, hardest first
 ) WITHOUT ROWID;
 
 CREATE TABLE game_results (
@@ -129,7 +130,7 @@ CREATE INDEX idx_results_leaderboard
 
 | File | Format | Notes |
 |------|--------|-------|
-| `/opt/tenq/secrets/words.json` (local: `backend/secrets/words.json`) | JSON array of `{word, part_of_speech, category, definition, attributes[]}`; `word` matches `[a-z]{2,32}` | Validated by `app.scripts.seed_words` (exactly 365, unique, definition must not contain the word) and loaded into `words`; the SHA-256 of the sorted word list is recorded on each pinned puzzle |
+| `/opt/tenq/secrets/words.json` (local: `backend/secrets/words.json`) | JSON array of `{word, part_of_speech, category, definition, attributes[], hints[4]}` (hints optional: `app.scripts.prepare_hints` writes a default ladder the owner can edit); `word` matches `[a-z]{2,32}` | Validated by `app.scripts.seed_words` (exactly 365, unique, definition must not contain the word) and loaded into `words`; the SHA-256 of the sorted word list is recorded on each pinned puzzle |
 | `TENQ_WORD_SELECTION_KEY` (VM `.env`) | 32 random bytes, hex | Used only for HMAC in word selection (ADR 0012) |
 
 The repository ships no words: `seed_words --dev` generates obviously fake `zzdev...` entries for development and tests.

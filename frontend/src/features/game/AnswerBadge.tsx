@@ -1,4 +1,4 @@
-import type { Answer } from '../../api/types'
+import type { Answer, AttemptKind } from '../../api/types'
 
 const TEXT: Record<Answer, string> = {
   YES: 'Yes',
@@ -8,6 +8,7 @@ const TEXT: Record<Answer, string> = {
   WIN: 'Correct!',
 }
 
-export function AnswerBadge({ answer }: { answer: Answer }) {
-  return <span className={`badge badge-${answer.toLowerCase()}`}>{TEXT[answer]}</span>
+export function AnswerBadge({ answer, kind = 'question' }: { answer: Answer; kind?: AttemptKind }) {
+  const text = kind === 'guess' && answer === 'NO' ? 'Wrong' : TEXT[answer]
+  return <span className={`badge badge-${answer.toLowerCase()}`}>{text}</span>
 }

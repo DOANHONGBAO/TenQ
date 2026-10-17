@@ -9,12 +9,14 @@ Output never includes the words themselves, only counts and the list fingerprint
 
 import argparse
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.models.daily_game import DailyGameConfig
+from app.models.hints import derive_hints
 from app.models.word import InvalidWordListError, PartOfSpeech, WordEntry, validate_word_list
 from app.models.word_schedule import word_list_sha256
 from app.repositories.database import apply_migrations
@@ -29,15 +31,14 @@ def dev_entries(count: int) -> list[WordEntry]:
     entries: list[WordEntry] = []
     for i in range(count):
         suffix = _LETTERS[i // 676] + _LETTERS[(i // 26) % 26] + _LETTERS[i % 26]
-        entries.append(
-            WordEntry(
-                word=f"zzdev{suffix}",
-                part_of_speech=PartOfSpeech.NOUN,
-                category="development placeholder",
-                definition="A fake entry used only for local development and tests.",
-                attributes=("fake", "development only"),
-            )
+        entry = WordEntry(
+            word=f"zzdev{suffix}",
+            part_of_speech=PartOfSpeech.NOUN,
+            category="development placeholder",
+            definition="A fake entry used only for local development and tests.",
+            attributes=("fake", "development only"),
         )
+        entries.append(replace(entry, hints=derive_hints(entry)))
     return entries
 
 

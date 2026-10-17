@@ -17,13 +17,16 @@ function game(overrides: Partial<GameState> = {}): GameState {
     remaining: 7,
     in_progress: false,
     history: [
-      { number: 1, question: 'Is it alive?', answer: 'YES', asked_at: 'x' },
-      { number: 2, question: 'Is it ignore rules?', answer: 'PENALTY', asked_at: 'x' },
-      { number: 3, question: 'Is it a walrus?', answer: 'WIN', asked_at: 'x' },
+      { number: 1, question: 'Is it alive?', answer: 'YES', asked_at: 'x', kind: 'question' },
+      { number: 2, question: 'Is it ignore rules?', answer: 'PENALTY', asked_at: 'x', kind: 'question' },
+      { number: 3, question: 'walrus', answer: 'WIN', asked_at: 'x', kind: 'guess' },
     ],
     started_at: 'x',
     finished_at: 'x',
     duration_ms: 95_000,
+    hints: [],
+    hints_total: 4,
+    next_hint_in: null,
     server_time: '2026-10-20T12:00:00.000Z',
     next_reset_at: '2026-10-21T00:00:00.000Z',
     ...overrides,
@@ -62,7 +65,7 @@ describe('reducer', () => {
   it('clears the last answer and announces a new day', () => {
     const day1 = gameReducer(initialState, { type: 'game_loaded', game: game(), receivedAt: Date.parse('2026-10-20T11:59:00Z') })
     expect(day1.clockOffsetMs).toBe(60_000)
-    const withAnswer = { ...day1, lastAnswer: { number: 1, answer: 'YES' as const, question: 'q' } }
+    const withAnswer = { ...day1, lastAnswer: { number: 1, answer: 'YES' as const, question: 'q', kind: 'question' as const } }
     const day2 = gameReducer(withAnswer, {
       type: 'game_loaded',
       game: game({ game_date: '2026-10-21', status: 'not_started' }),

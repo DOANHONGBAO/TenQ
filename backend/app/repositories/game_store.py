@@ -29,6 +29,7 @@ from redis.asyncio import Redis
 
 from app.models.game import (
     Answer,
+    AttemptKind,
     GameState,
     GameStatus,
     HistoryEntry,
@@ -93,7 +94,7 @@ COMMIT_LUA = (
     _EXPIRE
     + """
 -- KEYS: game, idem, qset, hist, lb
--- ARGV: token, now_ms, answer, question, player_hash, max_questions, ttl_s
+-- ARGV: token, now_ms, answer, question, player_hash, max_questions, ttl_s, kind
 local now = tonumber(ARGV[2])
 local g = redis.call('HMGET', KEYS[1], 'lease_token', 'lease_until_ms', 'used',
                      'lease_qhash', 'lease_started_ms', 'started_at_ms', 'status')
@@ -110,7 +111,8 @@ if not started then
   redis.call('HSET', KEYS[1], 'started_at_ms', started)
 end
 
-redis.call('RPUSH', KEYS[4], cjson.encode({n = used, q = ARGV[4], a = ARGV[3], t = now}))
+local entry = {n = used, q = ARGV[4], a = ARGV[3], t = now, k = ARGV[8]}
+redis.call('RPUSH', KEYS[4], cjson.encode(entry))
 redis.call('SADD', KEYS[3], g[4])
 
 local status = 'in_progress'
@@ -254,6 +256,7 @@ class RedisGameStore:
         now: datetime,
         answer: Answer,
         question: str,
+        kind: AttemptKind = AttemptKind.QUESTION,
     ) -> CommitResult:
         k = self.keys(game_date, player_hash)
         raw = cast(
@@ -274,6 +277,7 @@ class RedisGameStore:
                     player_hash,
                     self._max,
                     ttl_seconds(game_date, now),
+                    kind.value,
                 ],
             ),
         )
@@ -301,6 +305,7 @@ class RedisGameStore:
                 question=str(item["q"]),
                 answer=Answer(item["a"]),
                 asked_at=datetime.fromtimestamp(int(item["t"]) / 1000, UTC),
+                kind=AttemptKind(item.get("k") or AttemptKind.QUESTION.value),
             )
             for item in (json.loads(h) for h in hist)
         )

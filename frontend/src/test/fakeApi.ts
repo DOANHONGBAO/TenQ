@@ -5,7 +5,7 @@ import { vi } from 'vitest'
 
 import { ApiError } from '../api/client'
 import type { Api } from '../api/client'
-import type { Answer, GameState, HistoryEntry, Leaderboard } from '../api/types'
+import type { Answer, AttemptKind, GameState, HistoryEntry, Leaderboard } from '../api/types'
 
 export interface FakeServer {
   api: Api
@@ -24,6 +24,9 @@ export interface FakeServer {
   holdAsks: boolean
   release: () => void
   leaderboard: Leaderboard
+  /** The secret word, used only to judge guesses. */
+  secret: string
+  hints: string[]
   game: () => GameState
 }
 
@@ -53,6 +56,8 @@ export function createFakeServer(overrides: Partial<FakeServer> = {}): FakeServe
       })
     },
     leaderboard: { game_date: '2026-10-20', entries: [], me: null, total_winners: 0 },
+    secret: 'walrus',
+    hints: ['Hint one: vague.', 'Hint two: a category.', 'Hint three: traits.', 'Hint four: obvious.'],
     game: () => {
       const used = server.history.length
       return {
@@ -66,6 +71,10 @@ export function createFakeServer(overrides: Partial<FakeServer> = {}): FakeServe
         started_at: used ? server.serverTime : null,
         finished_at: server.status === 'won' || server.status === 'lost' ? server.serverTime : null,
         duration_ms: server.status === 'won' ? 125_000 : null,
+        hints: server.hints.slice(0, Math.min(4, Math.floor(used / 2))),
+        hints_total: 4,
+        next_hint_in:
+          server.status === 'won' || server.status === 'lost' || used >= 8 ? null : 2 - (used % 2),
         server_time: server.serverTime,
         next_reset_at: server.nextReset,
       }
@@ -78,10 +87,14 @@ export function createFakeServer(overrides: Partial<FakeServer> = {}): FakeServe
     if (!server.hasSession) throw httpError(401, 'SESSION_REQUIRED')
   }
 
-  const charge = (question: string): { number: number; answer: Answer } => {
-    const answer = server.nextAnswers.shift() ?? 'NO'
+  const charge = (
+    question: string,
+    kind: AttemptKind = 'question',
+    forced?: Answer,
+  ): { number: number; answer: Answer } => {
+    const answer = forced ?? server.nextAnswers.shift() ?? 'NO'
     const number = server.history.length + 1
-    server.history.push({ number, question, answer, asked_at: server.serverTime })
+    server.history.push({ number, question, answer, asked_at: server.serverTime, kind })
     if (answer === 'WIN') server.status = 'won'
     else if (number >= 10) server.status = 'lost'
     else server.status = 'in_progress'
@@ -119,6 +132,15 @@ export function createFakeServer(overrides: Partial<FakeServer> = {}): FakeServe
       const result = charge(question)
       seenKeys.set(key, result)
       return { ...result, game: server.game() }
+    }),
+    guess: vi.fn((word: string, key: string) => {
+      server.askCalls.push({ question: `guess:${word}`, key })
+      requireSession()
+      if (server.status === 'won') return Promise.reject(httpError(409, 'GAME_FINISHED'))
+      if (!/^[a-z]+$/i.test(word)) return Promise.reject(httpError(422, 'INVALID_GUESS'))
+      const correct = word.toLowerCase() === server.secret
+      const result = charge(word, 'guess', correct ? 'WIN' : 'NO')
+      return Promise.resolve({ ...result, game: server.game() })
     }),
     leaderboard: vi.fn(() => Promise.resolve(server.leaderboard)),
     answer: vi.fn(() => Promise.reject(httpError(404, 'NOT_FOUND'))),

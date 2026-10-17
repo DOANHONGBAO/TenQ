@@ -43,6 +43,7 @@ Every non-2xx response uses one envelope:
 | 409 | `DUPLICATE_QUESTION` | Same normalized question already asked today (OQ-05) | No |
 | 422 | `VALIDATION_ERROR` | Schema violation (types, unknown fields) | No |
 | 422 | `INVALID_QUESTION` | Fails deterministic question checks (OQ-04) | No |
+| 422 | `INVALID_GUESS` | Guess is not a single word of letters (OQ-12) | No |
 | 422 | `IDEMPOTENCY_KEY_REUSED` | Same key sent with a different body | No |
 | 429 | `RATE_LIMITED` | Rate limit hit; `Retry-After` header set | No |
 | 500 | `INTERNAL_ERROR` | Unexpected server error | No |
@@ -58,9 +59,10 @@ type GameStatus = "not_started" | "in_progress" | "won" | "lost";
 
 interface HistoryEntry {
   number: number;            // 1..10
-  question: string;          // as submitted (trimmed)
+  question: string;          // as submitted (trimmed); the guessed word for guesses
   answer: Answer;
   asked_at: string;          // timestamp
+  kind: "question" | "guess";
 }
 
 interface GameState {
@@ -74,6 +76,9 @@ interface GameState {
   started_at: string | null;
   finished_at: string | null;
   duration_ms: number | null;     // finished_at - started_at
+  hints: string[];                // unlocked hints, hardest first (OQ-11)
+  hints_total: number;            // 4
+  next_hint_in: number | null;    // attempts until the next hint; null if none left or game over
   server_time: string;
   next_reset_at: string;          // next 00:00 UTC
 }
@@ -136,6 +141,14 @@ Response `200 OK`:
 Replays of a completed submission return the same `number` and `answer` with header `Idempotent-Replayed: true`; `game` is the player's current state. The request body accepts only `question`; any other field (for example `remaining`, `used`, `status`) is rejected with `422 VALIDATION_ERROR`.
 
 Errors: `400`, `401`, `409 QUESTION_IN_PROGRESS | ATTEMPT_LIMIT_REACHED | GAME_FINISHED | DUPLICATE_QUESTION`, `422 INVALID_QUESTION | IDEMPOTENCY_KEY_REUSED | VALIDATION_ERROR`, `429`, `502 AI_INVALID_RESPONSE`, `503 AI_UNAVAILABLE | SERVICE_UNAVAILABLE`.
+
+### 4.4a `POST /game/today/guesses` *(session)*
+
+Headers: `Idempotency-Key: <UUID v4>` (required). Request: `{ "guess": "walrus" }` (only this field). One word of 2 to 32 letters, an optional leading article is ignored.
+
+Judged by exact comparison on the server (OQ-12), never by the AI. Costs one attempt: `WIN` if correct (game won), otherwise `NO`. Response and replays are identical to `POST /game/today/questions`.
+
+Errors: `400`, `401`, `409 QUESTION_IN_PROGRESS | ATTEMPT_LIMIT_REACHED | GAME_FINISHED | DUPLICATE_QUESTION` (same wrong guess again), `422 INVALID_GUESS | IDEMPOTENCY_KEY_REUSED | VALIDATION_ERROR`, `429`, `503`.
 
 ### 4.5 `GET /leaderboard/today?limit=50` *(session optional)*
 

@@ -2,10 +2,20 @@
 
 ## Status
 
-Phase: **Frontend (owner's Phase 07 brief, roadmap row 08) — in review** on `feature/frontend-game`. Phases 04 to 06 are merged (PR #4, #5).
-Next: owner review; remaining roadmap items: 02b (CI, pyright, request id, `/ready`), 07 (SQLite results and historical leaderboard), 09 (Playwright E2E), 10 (infrastructure and deployment).
+Phase: **Hints and guess box (owner request) — in review** on `feature/hints-and-guess`. Frontend merged (PR #6).
+Next: owner re-seeds the word list (hints) and reviews; remaining roadmap items: 02b (CI, pyright, request id, `/ready`), 07 (SQLite results and historical leaderboard), 09 (Playwright E2E), 10 (infrastructure and deployment).
 
 ## Log
+
+### 2026-10-17 — Progressive hints and guess box (`feature/hints-and-guess`)
+
+Done:
+- Requirements OQ-11 (4 hints, one per 2 attempts) and OQ-12 (guess box: exact match, costs one attempt) recorded as accepted.
+- Backend: `models/hints.py` (schedule, default ladder from metadata, validation that hints never spell the word), `models/guess.py`; migration `0002` adds `words.hints_json`; seed file accepts optional `hints` (derived when missing); `app.scripts.prepare_hints` writes editable hints into the private list (run on `backend/secrets/words.json`, backup `.bak`); GameService refactored into reserve/commit helpers with `guess()`; history entries carry `kind`; `POST /api/v1/game/today/guesses`; `GameState` adds `hints`, `hints_total`, `next_hint_in`; error `INVALID_GUESS`.
+- Frontend: `GuessForm`, `HintsPanel`, guess entries labelled in history ("Guess:" / "Wrong"), feedback for wrong guesses, rules updated, idempotent pending submissions per kind.
+- Docs: requirements, API contract (4.4a), data model, frontend.md, README.
+
+Verified on 2026-10-17: backend `ruff check`, `ruff format --check`, `pytest` 328 passed; frontend `npm run lint`, `npm test` 31 passed, `npm run build`; browser run against the backend: after one question and one wrong guess the first hint appeared and the guess was listed as "Guess: … WRONG".
 
 ### 2026-10-17 — Frontend game experience (`feature/frontend-game`)
 

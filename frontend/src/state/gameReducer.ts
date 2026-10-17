@@ -1,7 +1,7 @@
 // Pure state transitions for the game screen. The server is the source of truth: every
 // game state here was received from the API; the reducer never counts attempts itself.
 
-import type { Answer, GameState } from '../api/types'
+import type { Answer, AttemptKind, GameState } from '../api/types'
 
 export type Phase = 'booting' | 'ready' | 'maintenance' | 'error'
 
@@ -14,6 +14,7 @@ export interface LastAnswer {
   number: number
   answer: Answer
   question: string
+  kind: AttemptKind
 }
 
 export interface ViewState {

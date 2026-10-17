@@ -13,16 +13,18 @@ export function QuestionForm() {
   const disabled = state.submitting
   const trimmed = question.trim()
 
-  // Return focus to the input when an answer arrives, so keyboard play keeps flowing.
+  // Start with the question box focused.
   useEffect(() => {
-    if (!state.submitting) inputRef.current?.focus()
-  }, [state.submitting])
+    inputRef.current?.focus()
+  }, [])
 
   const onSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (disabled || trimmed.length === 0) return
     const ok = await ask(trimmed)
     if (ok) setQuestion('')
+    // Return focus to this input when the answer arrives, so keyboard play keeps flowing.
+    requestAnimationFrame(() => inputRef.current?.focus())
   }
 
   return (

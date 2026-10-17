@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 
 import { ApiError } from '../api/client'
 import type { Api } from '../api/client'
-import type { GameState } from '../api/types'
+import type { AttemptKind, GameState } from '../api/types'
 import { startSession } from '../features/session/session'
 import type { TokenProvider } from '../features/session/session'
 import { loadPending, savePending } from '../lib/storage'
@@ -80,8 +80,8 @@ export function GameProvider({ client, getToken, children }: Props) {
     await loadGame()
   }, [loadGame])
 
-  const ask = useCallback(
-    async (raw: string): Promise<boolean> => {
+  const submit = useCallback(
+    async (kind: AttemptKind, raw: string): Promise<boolean> => {
       const current = stateRef.current
       const question = raw.trim()
       if (inFlight.current || current.game === null || isFinished(current.game) || !question) {
@@ -90,18 +90,23 @@ export function GameProvider({ client, getToken, children }: Props) {
       inFlight.current = true
       const stored = loadPending()
       const key =
-        stored !== null && stored.question === question && stored.gameDate === current.game.game_date
+        stored !== null &&
+        stored.kind === kind &&
+        stored.question === question &&
+        stored.gameDate === current.game.game_date
           ? stored.idempotencyKey
           : crypto.randomUUID()
-      savePending({ gameDate: current.game.game_date, question, idempotencyKey: key })
+      savePending({ gameDate: current.game.game_date, kind, question, idempotencyKey: key })
       dispatch({ type: 'submit_started' })
       try {
-        const result = await withSession(() => client.ask(question, key))
+        const result = await withSession(() =>
+          kind === 'guess' ? client.guess(question, key) : client.ask(question, key),
+        )
         savePending(null)
         dispatch({
           type: 'submit_succeeded',
           game: result.game,
-          last: { number: result.number, answer: result.answer, question },
+          last: { number: result.number, answer: result.answer, question, kind },
           receivedAt: Date.now(),
         })
         return true
@@ -118,6 +123,8 @@ export function GameProvider({ client, getToken, children }: Props) {
     },
     [client, loadGame, withSession],
   )
+  const ask = useCallback((question: string) => submit('question', question), [submit])
+  const guess = useCallback((word: string) => submit('guess', word), [submit])
 
   // Boot, then keep trying while in maintenance.
   useEffect(() => {
@@ -148,13 +155,14 @@ export function GameProvider({ client, getToken, children }: Props) {
     () => ({
       state,
       ask,
+      guess,
       refresh,
       dismissNotice: () => {
         dispatch({ type: 'notice', notice: null })
       },
       serverNow: () => Date.now() + stateRef.current.clockOffsetMs,
     }),
-    [state, ask, refresh],
+    [state, ask, guess, refresh],
   )
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>
 }

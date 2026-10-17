@@ -36,6 +36,11 @@ class Answer(StrEnum):
     WIN = "WIN"
 
 
+class AttemptKind(StrEnum):
+    QUESTION = "question"  # a yes/no question judged by the AI
+    GUESS = "guess"  # a direct guess from the guess box, judged by exact comparison
+
+
 def status_after(used: int, answer: Answer, max_questions: int = MAX_QUESTIONS) -> GameStatus:
     """Status after a question has been charged (`used` already includes it)."""
     if answer is Answer.WIN:
@@ -51,6 +56,7 @@ class HistoryEntry:
     question: str
     answer: Answer
     asked_at: datetime
+    kind: AttemptKind = AttemptKind.QUESTION
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +69,8 @@ class GameState:
     finished_at: datetime | None
     history: tuple[HistoryEntry, ...] = field(default_factory=tuple)
     max_questions: int = MAX_QUESTIONS
+    # Progressive hints unlocked so far (filled by GameService; never more than used allows).
+    hints: tuple[str, ...] = ()
 
     @property
     def remaining(self) -> int:
