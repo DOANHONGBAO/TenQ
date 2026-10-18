@@ -3,7 +3,7 @@
   "routes": [
     {
       "src": "^/api/(.*)$",
-      "dest": "https://ORIGIN_HOST/api/$1",
+      "dest": "https://static.tail634ce2.ts.net/api/$1",
       "transforms": [
         {
           "type": "request.headers",

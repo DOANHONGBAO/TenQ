@@ -2,10 +2,16 @@
 
 ## Status
 
-Phase: **Production deployment and CI/CD (owner's Phase 10 brief) — prepared, in review** on `feat/production-deploy`. Nothing is deployed; no cloud resource was created.
-Next: owner merges, then follows `docs/deployment.md` (Oracle account and VM, certificate, Vercel project, Turnstile widget, GitHub Environment secrets) and runs the validation checklist in `docs/operations-runbook.md`.
+Phase: **Temporary home hosting (owner request) — in progress** on `feat/home-host`. The owner cannot open an Oracle account yet; backend runs on the owner's computer behind Tailscale Funnel, frontend on Vercel. Oracle plan (`deployment.md`) unchanged.
+Next: owner starts tailscaled, enables Funnel, fills production env files; then `vercel.json` gets the `ts.net` host, Vercel and Turnstile are configured, and the checks in `home-hosting.md` run against the live URLs.
 
 ## Log
+
+### 2026-10-18 — Temporary home hosting (`feat/home-host`)
+
+Done: `infra/scripts/home-host.sh` (preflight of production env files, compose up with health wait, Tailscale Funnel to `127.0.0.1:8080`, down keeps volumes); `docs/home-hosting.md`; CD automatic deploys now require the repository variable `DEPLOY_ENABLED=true` (the first CD run after PR #10 failed only because no deploy secrets exist yet).
+Checked: Tailscale Funnel is available on all plans, in beta, TLS terminated by tailscaled, ports 443/8443/10000 only, non-configurable bandwidth limits (tailscale.com/kb/1223/funnel); ngrok free (20,000 requests and 1 GB per month, browser interstitial) rejected as too small.
+Not yet verified: anything live (Tailscale login, Funnel, Vercel, Turnstile).
 
 ### 2026-10-17 — Production deployment preparation (`feat/production-deploy`)
 

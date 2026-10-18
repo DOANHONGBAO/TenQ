@@ -110,7 +110,7 @@ infra/scripts/smoke.sh              # end-to-end checks through nginx on http://
 
 Only nginx publishes a port. Details, request path, and tests: [docs/infrastructure.md](docs/infrastructure.md).
 
-Production (Oracle Cloud Always Free + Vercel, prepared but not yet deployed): [docs/deployment.md](docs/deployment.md), [docs/ci-cd.md](docs/ci-cd.md), [docs/operations-runbook.md](docs/operations-runbook.md), [docs/rollback.md](docs/rollback.md).
+Temporary hosting on the owner's computer (Vercel + Tailscale Funnel): [docs/home-hosting.md](docs/home-hosting.md). Production (Oracle Cloud Always Free + Vercel, prepared but not yet deployed): [docs/deployment.md](docs/deployment.md), [docs/ci-cd.md](docs/ci-cd.md), [docs/operations-runbook.md](docs/operations-runbook.md), [docs/rollback.md](docs/rollback.md).
 
 ## Frontend
 
