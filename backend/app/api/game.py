@@ -5,13 +5,22 @@ from fastapi import APIRouter, Header, Query, Response
 
 from app.api.deps import (
     GameServiceDep,
+    NamePlayer,
     OptionalPlayer,
     QuestionPlayer,
     ReadLimited,
     RequiredPlayer,
 )
 from app.core.errors import BadRequestError
-from app.schemas.game import AskRequest, AskResponse, GameStateOut, GuessRequest, LeaderboardOut
+from app.schemas.game import (
+    AskRequest,
+    AskResponse,
+    GameStateOut,
+    GuessRequest,
+    LeaderboardOut,
+    PlayerNameOut,
+    PlayerNameRequest,
+)
 
 router = APIRouter(tags=["game"])
 
@@ -86,3 +95,12 @@ async def leaderboard_today(
 ) -> LeaderboardOut:
     response.headers["Cache-Control"] = "no-store"
     return LeaderboardOut.build(await service.leaderboard(limit, player))
+
+
+@router.post("/players/me/name", response_model=PlayerNameOut)
+async def set_player_name(
+    body: PlayerNameRequest, service: GameServiceDep, player: NamePlayer, response: Response
+) -> PlayerNameOut:
+    """Today's winner chooses the name shown on the leaderboard (kept for later days)."""
+    response.headers["Cache-Control"] = "no-store"
+    return PlayerNameOut(display_name=await service.set_name(player, body.name))

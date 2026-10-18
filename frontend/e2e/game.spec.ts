@@ -16,7 +16,7 @@ test('first visit passes Turnstile once and starts a fresh game', async ({ page 
 
   await expect(remaining(page)).toHaveText(/10 of 10 questions left/)
   await expect(page.getByText(/daily challenge/i)).toContainText('#4')
-  await expect(page.getByText('How to play')).toBeVisible()
+  await expect(page.getByText(/one idea per question/i)).toBeVisible()
   expect(backend.sessionCreated).toBe(1)
   expect(await page.evaluate(() => (window as unknown as { __tsResets?: number }).__tsResets)).toBe(1)
 })
@@ -67,10 +67,22 @@ test('winning with the guess box shows the win screen and share', async ({ page 
   await page.getByLabel(/guess the word/i).fill('Walrus')
   await page.getByRole('button', { name: /^guess$/i }).click()
 
-  const heading = page.getByRole('heading', { name: /you got it/i })
-  await expect(heading).toBeVisible()
+  // Celebration: the chest opens, then the winner can put a name on the leaderboard.
+  const dialog = page.getByRole('dialog', { name: /you got it/i })
+  await expect(dialog).toBeVisible()
+  const name = dialog.getByLabel(/your name on today’s leaderboard/i)
+  await expect(name).toBeFocused()
+  await name.fill('Trang')
+  await dialog.getByRole('button', { name: /save my name/i }).click()
+  await expect(dialog).toContainText('You are on the board as Trang')
+  await dialog.getByRole('button', { name: /awesome/i }).click()
+  await expect(dialog).toHaveCount(0)
+
+  const heading = page.getByRole('heading', { name: /solved/i })
   await expect(heading).toBeFocused()
   await expect(page.getByText(/solved in 2 of 10 questions/i)).toBeVisible()
+  await expect(page.getByText(/on the leaderboard as trang/i)).toBeVisible()
+  await expect(page.getByRole('region', { name: /leaderboard/i })).toContainText('Trang')
   await expect(page.getByRole('button', { name: /share result/i })).toBeVisible()
 })
 
@@ -104,5 +116,13 @@ test('layout fits the viewport without horizontal scrolling', async ({ page }) =
   await expect(remaining(page)).toBeVisible()
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow).toBeLessThanOrEqual(0)
+  // overflow-x: clip hides the page scroll, so also check that no card is cut off.
+  const cutOff = await page.evaluate(
+    () =>
+      [...document.querySelectorAll('.card')].filter(
+        (card) => card.getBoundingClientRect().right > window.innerWidth,
+      ).length,
+  )
+  expect(cutOff).toBe(0)
   await expect(page.getByLabel(/ask a yes\/no question/i)).toBeInViewport()
 })

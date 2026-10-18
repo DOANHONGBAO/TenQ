@@ -108,7 +108,7 @@ def test_migration_adds_hints_to_an_existing_database(tmp_path: Path) -> None:
     conn.commit()
     conn.close()
 
-    assert apply_migrations(db) == [2]
+    assert apply_migrations(db) == [2, 3]
     entry = SqliteWordRepository(db).get_entry("zzold")
     assert entry is not None and entry.hints == ()
 

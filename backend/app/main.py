@@ -30,6 +30,7 @@ from app.repositories.abuse_store import AbuseStore
 from app.repositories.database import apply_migrations
 from app.repositories.game_store import RedisGameStore
 from app.repositories.judge_cache import JudgeCache
+from app.repositories.player_name_repository import SqlitePlayerNameRepository
 from app.repositories.word_repository import SqliteWordRepository
 from app.services.daily_word_service import DailyWordService
 from app.services.game_service import GameService
@@ -142,6 +143,7 @@ def create_app(
             clock=clock,
             lease_ms=settings.question_lease_ms,
             judge_timeout_s=settings.judge_timeout_s,
+            names=SqlitePlayerNameRepository(settings.database_path),
         )
         logger.info(
             "app started env=%s judge=%s model=%s", settings.env.value, settings.ai_judge, model

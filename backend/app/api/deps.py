@@ -136,6 +136,17 @@ async def question_guard(
             await abuse.release_slot("ask-ip", client.ip_hash)
 
 
+async def name_guard(
+    request: Request,
+    client: Annotated[ClientContext, Depends(client_context)],
+    player: Annotated[str, Depends(required_player)],
+) -> str:
+    """A few name changes per hour per player and per network are plenty."""
+    await _limit(request, "name-player", player, 10, 3600)
+    await _limit(request, "name-ip", client.ip_hash, 30, 3600)
+    return player
+
+
 DailyWordServiceDep = Annotated[DailyWordService, Depends(get_daily_word_service)]
 GameServiceDep = Annotated[GameService, Depends(get_game_service)]
 SessionServiceDep = Annotated[SessionService, Depends(get_session_service)]
@@ -144,4 +155,5 @@ ClientDep = Annotated[ClientContext, Depends(client_context)]
 OptionalPlayer = Annotated[str | None, Depends(optional_player)]
 RequiredPlayer = Annotated[str, Depends(required_player)]
 QuestionPlayer = Annotated[str, Depends(question_guard)]
+NamePlayer = Annotated[str, Depends(name_guard)]
 ReadLimited = Depends(read_rate_limit)

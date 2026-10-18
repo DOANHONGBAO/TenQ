@@ -41,9 +41,11 @@ Every non-2xx response uses one envelope:
 | 409 | `ATTEMPT_LIMIT_REACHED` | 10 questions already used | No |
 | 409 | `GAME_FINISHED` | Game already won | No |
 | 409 | `DUPLICATE_QUESTION` | Same normalized question already asked today (OQ-05) | No |
+| 409 | `NOT_A_WINNER` | Leaderboard name requested by a player who has not won today | N/A |
 | 422 | `VALIDATION_ERROR` | Schema violation (types, unknown fields) | No |
 | 422 | `INVALID_QUESTION` | Fails deterministic question checks (OQ-04) | No |
 | 422 | `INVALID_GUESS` | Guess is not a single word of letters (OQ-12) | No |
+| 422 | `INVALID_NAME` | Leaderboard name fails validation (OQ-07); `message` says why | N/A |
 | 422 | `IDEMPOTENCY_KEY_REUSED` | Same key sent with a different body | No |
 | 429 | `RATE_LIMITED` | Rate limit hit; `Retry-After` header set | No |
 | 500 | `INTERNAL_ERROR` | Unexpected server error | No |
@@ -160,12 +162,20 @@ Errors: `400`, `401`, `409 QUESTION_IN_PROGRESS | ATTEMPT_LIMIT_REACHED | GAME_F
   "entries": [
     { "rank": 1, "display_name": "Player-7F3A", "questions": 4, "duration_ms": 182340 }
   ],
-  "me": { "rank": 17, "questions": 7, "duration_ms": 610200 },
+  "me": { "rank": 17, "display_name": "Trang", "questions": 7, "duration_ms": 610200 },
   "total_winners": 128
 }
 ```
 
-Only won games are listed (OQ-07). `me` is `null` without a session or if the caller has not won today. Ranking: `questions` ascending, then `duration_ms` ascending (server-measured, millisecond resolution), then earlier `finished_at`, then player hash; the order is total and deterministic. Entries carry only the anonymous `display_name` (`Player-` + first 6 hex characters of the keyed player hash).
+Only won games are listed (OQ-07). `me` is `null` without a session or if the caller has not won today. Ranking: `questions` ascending, then `duration_ms` ascending (server-measured, millisecond resolution), then earlier `finished_at`, then player hash; the order is total and deterministic. `display_name` is the name the winner chose (4.5a), otherwise `Player-` + the first 6 hex characters of the keyed player hash.
+
+### 4.5a `POST /players/me/name` *(session)*
+
+Request: `{ "name": "Nguyễn Trang" }` (only this field). Response `200`: `{ "display_name": "Nguyễn Trang" }`.
+
+Only a player who has won today may set a name (OQ-07); it is stored per player hash and reused on later days. The name is NFC-normalized and whitespace-collapsed; 2 to 20 characters of letters (any script), digits, spaces, and `_ - . '`, at least one letter, no links or `@`. Limits: 10 changes per hour per player, 30 per hour per IP hash.
+
+Errors: `401`, `409 NOT_A_WINNER`, `422 INVALID_NAME | VALIDATION_ERROR`, `429`, `503`.
 
 ### 4.6 `GET /leaderboard/{date}?limit=50`
 

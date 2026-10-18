@@ -62,7 +62,7 @@ export function QuestionForm() {
         </button>
       </div>
       <p id={hintId} className="ask-hint">
-        <span>End with “?”.</span>
+        <span>One idea per question, about the thing (not its spelling). End with “?”.</span>
         <span aria-label={`${String(question.length)} of ${String(MAX_LENGTH)} characters`}>
           {question.length}/{MAX_LENGTH}
         </span>

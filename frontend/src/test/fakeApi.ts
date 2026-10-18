@@ -24,6 +24,7 @@ export interface FakeServer {
   holdAsks: boolean
   release: () => void
   leaderboard: Leaderboard
+  playerName: string | null
   /** The secret word, used only to judge guesses. */
   secret: string
   hints: string[]
@@ -56,6 +57,7 @@ export function createFakeServer(overrides: Partial<FakeServer> = {}): FakeServe
       })
     },
     leaderboard: { game_date: '2026-10-20', entries: [], me: null, total_winners: 0 },
+    playerName: null,
     secret: 'walrus',
     hints: ['Hint one: vague.', 'Hint two: a category.', 'Hint three: traits.', 'Hint four: obvious.'],
     game: () => {
@@ -143,6 +145,14 @@ export function createFakeServer(overrides: Partial<FakeServer> = {}): FakeServe
       return Promise.resolve({ ...result, game: server.game() })
     }),
     leaderboard: vi.fn(() => Promise.resolve(server.leaderboard)),
+    setName: vi.fn((name: string) => {
+      requireSession()
+      if (server.status !== 'won') return Promise.reject(httpError(409, 'NOT_A_WINNER'))
+      const clean = name.trim()
+      if (clean.length < 2 || clean.length > 20) return Promise.reject(httpError(422, 'INVALID_NAME'))
+      server.playerName = clean
+      return Promise.resolve({ display_name: clean })
+    }),
     answer: vi.fn(() => Promise.reject(httpError(404, 'NOT_FOUND'))),
   }
   return server

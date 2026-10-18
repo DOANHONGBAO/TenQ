@@ -114,8 +114,21 @@ class LeaderboardEntryOut(BaseModel):
 
 class LeaderboardMeOut(BaseModel):
     rank: int
+    display_name: str
     questions: int
     duration_ms: int
+
+
+class PlayerNameRequest(BaseModel):
+    """Only the name. Validated by `normalize_player_name` (2 to 20 characters)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(max_length=200)
+
+
+class PlayerNameOut(BaseModel):
+    display_name: str
 
 
 class LeaderboardOut(BaseModel):
@@ -129,7 +142,10 @@ class LeaderboardOut(BaseModel):
         me = None
         if board.me is not None:
             me = LeaderboardMeOut(
-                rank=board.me.rank, questions=board.me.questions, duration_ms=board.me.duration_ms
+                rank=board.me.rank,
+                display_name=board.me.display_name,
+                questions=board.me.questions,
+                duration_ms=board.me.duration_ms,
             )
         return cls(
             game_date=board.game_date,

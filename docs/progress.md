@@ -7,6 +7,14 @@ Next: owner starts tailscaled, enables Funnel, fills production env files; then 
 
 ## Log
 
+### 2026-10-18 — Playful UI and winner names (`feat/playful-ui`)
+
+- Owner request: brighter playful flat 2.0 design (squircle bubbles, clay depth, animations), a win celebration (treasure chest + confetti), then a box for the winner's name; the long how-to-play panel removed (a one-line tip stays under the question box).
+- Backend: `POST /api/v1/players/me/name` (only today's winners; NFC-normalized 2-20 character allow-list, no links; 10/h per player, 30/h per IP hash). Names in SQLite `player_names` (migration 0003), shown on the leaderboard and in `me.display_name`. `requirements.md` OQ-07 Accepted, API contract 4.5a, data model, threat model T-18.
+- Frontend: new `index.css` design system; `features/celebration/` (`WinCelebration` modal with focus trap and Escape, `TreasureChest` SVG, `Confetti` canvas); name kept in localStorage only to prefill; leaderboard highlights the caller and the top 3.
+- Fixed while testing: on phones the cards were wider than the column (grid items keep their min-content width); the E2E layout test now also checks that no card is cut off.
+- Verified locally: backend `uv run pytest` 381 passed with test Redis, `ruff check` and `ruff format --check` clean; frontend `npm run lint` clean, `npm test` 38 passed, `npm run build` OK, `npm run test:e2e` 14 passed (desktop + mobile).
+
 ### 2026-10-18 — Home hosting update fix (`fix/home-host-recreate`)
 
 - After merging PR #13 the live API still ran the old code: `podman-compose up -d --build` rebuilt the image but kept the running container. `home-host.sh up` now passes `--force-recreate` (volumes kept), and `home-hosting.md` explains how to apply updates. Checked with `sh -n`.

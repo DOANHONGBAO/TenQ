@@ -89,10 +89,11 @@ class LeaderboardEntry:
     player_hash: str
     questions: int
     duration_ms: int
+    name: str | None = None  # chosen by the winner (OQ-07); otherwise derived from the hash
 
     @property
     def display_name(self) -> str:
-        return display_name_for(self.player_hash)
+        return self.name or display_name_for(self.player_hash)
 
 
 @dataclass(frozen=True, slots=True)

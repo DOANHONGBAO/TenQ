@@ -29,7 +29,9 @@ from app.core.errors import (
     GameFinishedError,
     IdempotencyKeyReusedError,
     InvalidGuessAppError,
+    InvalidPlayerNameAppError,
     InvalidQuestionAppError,
+    NotAWinnerError,
     QuestionInProgressError,
     ServiceUnavailableError,
 )
@@ -40,11 +42,13 @@ from app.integrations.ai_judge import (
     JudgeInvalidOutputError,
 )
 from app.models.clock import Clock, game_date_at
-from app.models.game import Answer, AttemptKind, GameState, Leaderboard
+from app.models.game import Answer, AttemptKind, GameState, GameStatus, Leaderboard
 from app.models.guess import InvalidGuessError, guess_is_correct, parse_guess
 from app.models.hints import visible_hint_count
+from app.models.player_name import InvalidPlayerNameError, normalize_player_name
 from app.models.question import InvalidQuestionError, mentions_word, parse_question
 from app.repositories.game_store import RedisGameStore, ReserveOutcome
+from app.repositories.player_name_repository import PlayerNameRepository
 from app.services.daily_word_service import DailyWordService
 
 logger = logging.getLogger(__name__)
@@ -75,6 +79,7 @@ class GameService:
         clock: Clock,
         lease_ms: int,
         judge_timeout_s: float,
+        names: PlayerNameRepository | None = None,
     ) -> None:
         if judge_timeout_s * 1000 >= lease_ms:
             raise ValueError("the lease must outlast the judge timeout (ADR 0003)")
@@ -84,6 +89,7 @@ class GameService:
         self._clock = clock
         self._lease_ms = lease_ms
         self._judge_timeout_s = judge_timeout_s
+        self._names = names
 
     def now(self) -> datetime:
         return self._clock.now()
@@ -110,9 +116,37 @@ class GameService:
 
     async def leaderboard(self, limit: int, player_hash: str | None) -> Leaderboard:
         try:
-            return await self._store.leaderboard(self.today(), limit, player_hash)
+            board = await self._store.leaderboard(self.today(), limit, player_hash)
         except RedisError as exc:
             raise _unavailable(exc) from exc
+        return self._with_names(board)
+
+    def _with_names(self, board: Leaderboard) -> Leaderboard:
+        """Replace generated names with the ones winners chose (OQ-07)."""
+        if self._names is None:
+            return board
+        rows = [*board.entries, *([board.me] if board.me else [])]
+        names = self._names.names_for(entry.player_hash for entry in rows)
+        if not names:
+            return board
+        return replace(
+            board,
+            entries=tuple(replace(e, name=names.get(e.player_hash)) for e in board.entries),
+            me=replace(board.me, name=names.get(board.me.player_hash)) if board.me else None,
+        )
+
+    async def set_name(self, player_hash: str, raw_name: str) -> str:
+        """Store the public leaderboard name of a player who won today. Returns the stored name."""
+        if self._names is None:
+            raise ServiceUnavailableError()
+        try:
+            name = normalize_player_name(raw_name)
+        except InvalidPlayerNameError as exc:
+            raise InvalidPlayerNameAppError(str(exc)) from exc
+        if (await self.state(player_hash)).status is not GameStatus.WON:
+            raise NotAWinnerError()
+        self._names.set_name(player_hash, name, self._clock.now())
+        return name
 
     async def ask(self, player_hash: str, raw_question: str, idempotency_key: str) -> AskResult:
         try:

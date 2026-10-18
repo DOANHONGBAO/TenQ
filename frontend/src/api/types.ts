@@ -47,7 +47,7 @@ export interface LeaderboardEntry {
 export interface Leaderboard {
   game_date: string
   entries: LeaderboardEntry[]
-  me: { rank: number; questions: number; duration_ms: number } | null
+  me: { rank: number; display_name: string; questions: number; duration_ms: number } | null
   total_winners: number
 }
 
@@ -123,8 +123,21 @@ export function isLeaderboard(v: unknown): v is Leaderboard {
   }
   const me = v.me
   const meOk =
-    me === null || (isObj(me) && isNum(me.rank) && isNum(me.questions) && isNum(me.duration_ms))
+    me === null ||
+    (isObj(me) &&
+      isNum(me.rank) &&
+      isStr(me.display_name) &&
+      isNum(me.questions) &&
+      isNum(me.duration_ms))
   return meOk && v.entries.every(isLeaderboardEntry)
+}
+
+export interface PlayerName {
+  display_name: string
+}
+
+export function isPlayerName(v: unknown): v is PlayerName {
+  return isObj(v) && isStr(v.display_name)
 }
 
 export function isPuzzleAnswer(v: unknown): v is PuzzleAnswer {

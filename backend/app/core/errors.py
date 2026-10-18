@@ -132,6 +132,18 @@ class InvalidGuessAppError(AppError):
     message = "A guess must be a single English word."
 
 
+class InvalidPlayerNameAppError(AppError):
+    status_code = 422
+    code = "INVALID_NAME"
+    message = "That name cannot be used."
+
+
+class NotAWinnerError(AppError):
+    status_code = 409
+    code = "NOT_A_WINNER"
+    message = "Only today's winners can choose a leaderboard name."
+
+
 class IdempotencyKeyReusedError(AppError):
     status_code = 422
     code = "IDEMPOTENCY_KEY_REUSED"
