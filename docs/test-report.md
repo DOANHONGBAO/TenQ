@@ -77,7 +77,8 @@ Uncovered lines are mostly defensive branches (`pragma`-free fallbacks such as R
 
 | Phase | Bug | Fix | Guarded by |
 |-------|-----|-----|-----------|
-| 09 | `integration.sh` aborted when `podman-compose restart` exited non-zero on a stop-timeout warning, leaving the test stack running | restart/up/down are tolerated; the explicit checks decide | `integration.sh` (passed after the fix) |
+| 09 | `integration.sh`/`smoke.sh` aborted silently on the first failed check (`set -e` with a `cmd; check $?` pattern), and the state read after a restart raced container readiness — the cause of the earlier unexplained failures | no `set -e` in the test scripts, every step reports through `check`; state reads retry for up to 30 s; curl failures print `000` | `integration.sh`: two consecutive full passes after the fix (Phase 10) |
+| 09 | Frontend test "unlocks one hint after every two tries" failed once on GitHub (PR #9) because it waited only 1 s for the hint on a slower runner | waits for the guess feedback first, 5 s timeouts | 5 consecutive local runs |
 | 09 | Integration runs shared the developer's stack and volumes, so earlier manual rate-limit counters caused a 429 | runs in a separate `tenq-it` compose project and removes its volumes | `integration.sh` |
 | 08 | After restarting only the API container, Nginx kept its old IP and returned 503 | `resolver` + `server api:8000 resolve` (re-resolve every 10 s) | manual restart test, `integration.sh` |
 | 08 | Bind mounts unreadable on SELinux hosts; map bucket too small for a 64-char secret; image default server shadowed the config; `burst=0` invalid | `,z` mounts, `map_hash_bucket_size 128`, template renders `default.conf`, no-burst limit | `integration.sh`, smoke |
@@ -116,14 +117,14 @@ These are laptop numbers for one worker; they are not a prediction for the Oracl
 
 ## 7. Remaining risks
 
-1. **CI not yet executed** on GitHub; Docker Engine and an arm64 build have not been run (Podman on x86_64 only).
+1. CI ran on GitHub after PR #9 (main: all jobs green; the PR run had one flaky frontend test, fixed in Phase 10). The arm64 build runs in CI from Phase 10 on.
 2. **Real AI quality** measured only on a 30-request sample (`gpt-oss:20b`, before the prompt fixes); cloud models and free quotas can change.
 3. **Per-IP limits and NAT**: 1 question per 2 s per IP at Nginx and 30 sessions/h per IP can affect many players behind one address; tune with real traffic.
 4. **No type checker on the backend yet** (pyright planned in roadmap 02b).
 5. **Leaderboard durability** relies on Redis AOF (`everysec`); writing results to SQLite (roadmap Phase 07) is not implemented, so a lost Redis volume loses the day's leaderboard.
 6. **Request IDs**: the API's error `request_id` is not the same as Nginx's `X-Request-ID` (middleware planned in 02b), which makes log correlation harder.
 7. **Unhandled-exception logs** include the exception message; a future bug that puts a secret into an exception message could reach the logs.
-8. **Integration flakiness not fully ruled out**: one early persistence failure was not reproduced or explained; the script now checks the session status explicitly so a repeat would show its cause.
+8. **Integration flakiness**: root cause found and fixed in Phase 10 (see bug table); keep an eye on the first CI runs of the containers job.
 9. **E2E uses a fake API**; a full browser run against the real stack with Turnstile test keys was done manually (Phase 06/07) but is not automated.
 10. **Load test is single-worker, single-machine, offline**; behaviour under the VM's CPU limits and real network latency is unmeasured.
 11. **Turnstile production keys, TLS, Vercel rewrite with `x-origin-secret`** are untested until deployment.

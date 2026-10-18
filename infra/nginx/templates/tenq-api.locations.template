@@ -1,0 +1,70 @@
+# API locations shared by the local (HTTP) and production (HTTPS) servers.
+# Rendered to /etc/nginx/conf.d/tenq-api.locations and included inside a server block.
+
+    location = /nginx-health {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"ok"}';
+    }
+
+    location /api/ {
+        if ($tenq_origin_blocked) {
+            return 403 '{"error":{"code":"FORBIDDEN_ORIGIN","message":"Forbidden."}}';
+        }
+
+        # No burst: a second question within 2 s from the same client IP gets an edge 429.
+        limit_req zone=tenq_ask;
+        limit_req zone=tenq_api burst=20 nodelay;
+        limit_conn tenq_conn 20;
+
+        proxy_pass http://tenq_api;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        # Overwrite (never append) client-supplied forwarding headers.
+        proxy_set_header X-Real-IP $tenq_client_ip;
+        proxy_set_header X-Forwarded-For $tenq_client_ip;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $request_id;
+        # Nginx is the API's only caller, so it vouches for X-Real-IP with the shared secret.
+        proxy_set_header X-Origin-Secret "${NGINX_ORIGIN_SECRET}";
+
+        proxy_connect_timeout 3s;
+        proxy_send_timeout 10s;
+        # Above the AI judge deadline (20 s) so slow but valid answers still arrive.
+        proxy_read_timeout 30s;
+        proxy_next_upstream off;
+
+        # Game responses are personal: never store them in any cache.
+        proxy_buffering on;
+        proxy_no_cache 1;
+        proxy_cache_bypass 1;
+        proxy_hide_header X-Powered-By;
+        # Upstream 429s pass through unchanged (code RATE_LIMITED, no X-RateLimit-Source).
+        proxy_intercept_errors off;
+    }
+
+    location / {
+        default_type application/json;
+        return 404 '{"error":{"code":"NOT_FOUND","message":"Resource not found."}}';
+    }
+
+    location @edge_rate_limited {
+        default_type application/json;
+        add_header Retry-After "2" always;
+        add_header X-RateLimit-Source "nginx" always;
+        add_header Cache-Control "no-store" always;
+        return 429 '{"error":{"code":"RATE_LIMITED","message":"Too many requests. Please wait a moment.","source":"edge"}}';
+    }
+
+    location @edge_too_large {
+        default_type application/json;
+        return 413 '{"error":{"code":"PAYLOAD_TOO_LARGE","message":"The request is too large.","source":"edge"}}';
+    }
+
+    location @edge_upstream_down {
+        default_type application/json;
+        add_header Retry-After "5" always;
+        add_header Cache-Control "no-store" always;
+        return 503 '{"error":{"code":"SERVICE_UNAVAILABLE","message":"The service is temporarily unavailable.","source":"edge"}}';
+    }

@@ -1,0 +1,13 @@
+# Secret scanning rules: gitleaks defaults plus an allow-list for the deliberately fake,
+# patterned keys used by the test suite (they protect nothing).
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fake test keys in backend/tests"
+paths = ['''^backend/tests/''']
+regexes = [
+    '''(00112233445566778899aabbccddeeff)+''',
+    '''(ffeeddccbbaa99887766554433221100)+''',
+    '''(0123456789abcdef)+''',
+]

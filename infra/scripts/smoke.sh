@@ -2,7 +2,8 @@
 # End-to-end checks against a running compose stack (local, NGINX_ENFORCE_ORIGIN=off).
 # Usage: infra/scripts/smoke.sh [base_url]     default http://127.0.0.1:8080
 # Needs: curl, python3. Uses the Cloudflare test Turnstile secret configured in api.env.
-set -eu
+# No `set -e`: every step reports through check(), and a failed check must not abort the run.
+set -u
 BASE=${1:-http://127.0.0.1:8080}
 JAR=$(mktemp)
 trap 'rm -f "$JAR" /tmp/tenq-smoke.*' EXIT
@@ -12,7 +13,8 @@ check() { # name, condition result (0 = ok)
     if [ "$2" -eq 0 ]; then pass=$((pass + 1)); echo "ok   $1"; else fail=$((fail + 1)); echo "FAIL $1"; fi
 }
 uuid() { python3 -c 'import uuid; print(uuid.uuid4())'; }
-status() { curl -s -o /tmp/tenq-smoke.body -D /tmp/tenq-smoke.head -w '%{http_code}' "$@"; }
+# A transport failure prints 000 (and fails the check) instead of aborting the script.
+status() { curl -s --max-time 30 -o /tmp/tenq-smoke.body -D /tmp/tenq-smoke.head -w '%{http_code}' "$@" || echo 000; }
 header() { grep -i "^$1:" /tmp/tenq-smoke.head | tr -d '\r' | cut -d' ' -f2-; }
 ask() { # question, then optional extra curl arguments
     q=$1

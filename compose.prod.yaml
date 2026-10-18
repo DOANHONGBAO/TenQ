@@ -1,0 +1,18 @@
+# Production overrides for the Oracle VM. Use together with compose.yaml:
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d
+# Differences: adds HTTPS on 443 and HTTP (ACME + redirect) on 80 (the base file's
+# 127.0.0.1:8080 binding stays local-only), certificates and ACME webroot
+# from /opt/tenq, image tagged with the deployed commit SHA for fast rollback.
+
+services:
+  nginx:
+    ports:
+      - "80:8080"
+      - "443:8443"
+    volumes:
+      - ./infra/nginx/templates-prod/default.conf.template:/etc/nginx/templates/default.conf.template:ro,z
+      - /opt/tenq/tls:/etc/nginx/tls:ro,z
+      - /opt/tenq/acme:/var/www/acme:ro,z
+
+  api:
+    image: tenq-api:${TENQ_RELEASE:?set TENQ_RELEASE to the commit SHA being deployed}

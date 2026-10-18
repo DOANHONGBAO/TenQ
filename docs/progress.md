@@ -2,10 +2,23 @@
 
 ## Status
 
-Phase: **QA / comprehensive automated testing (owner's Phase 09 brief) — in review** on `test/qa-suite`. Docker stack merged (PR #8).
-Next: push so CI runs for the first time; then deployment (TLS, Oracle VM, Vercel rewrite), roadmap 02b items (pyright, request id), and SQLite results.
+Phase: **Production deployment and CI/CD (owner's Phase 10 brief) — prepared, in review** on `feat/production-deploy`. Nothing is deployed; no cloud resource was created.
+Next: owner merges, then follows `docs/deployment.md` (Oracle account and VM, certificate, Vercel project, Turnstile widget, GitHub Environment secrets) and runs the validation checklist in `docs/operations-runbook.md`.
 
 ## Log
+
+### 2026-10-17 — Production deployment preparation (`feat/production-deploy`)
+
+Done:
+- Nginx templates split into shared http settings, server directives, and API locations; new `infra/nginx/templates-prod/default.conf.template` (HTTP: ACME webroot, health, redirect; HTTPS: TLS 1.2/1.3, HTTP/2, HSTS). `compose.prod.yaml` (ports 80/443, `/opt/tenq/tls`, `/opt/tenq/acme`, API image tagged with the commit SHA).
+- `deploy/remote-deploy.sh` (exact SHA, build, up without touching volumes, health gate, automatic rollback, image pruning), `deploy/rollback.sh`, `deploy/certbot-deploy-hook.sh`, `deploy/backup.sh` + systemd timer.
+- `frontend/vercel.json`: `/api/*` route to `https://ORIGIN_HOST` with an `x-origin-secret` request-header transform, rewrite caching off, SPA fallback, basic headers.
+- `.github/workflows/cd.yml` (after successful CI on main or manual SHA; Environment `production`; strict host key; public health check); CI gains `security` (pip-audit, npm audit, gitleaks, bundle check) and arm64 build + prod compose validation; `.gitleaks.toml`.
+- Docs: `deployment.md`, `ci-cd.md`, `operations-runbook.md` (with the production validation checklist), `rollback.md`; test report updated.
+- Fixed: flaky frontend hint test (failed once on GitHub for PR #9); root cause of the earlier integration flakiness (`set -e` + `check` pattern, readiness race).
+
+Verified locally on 2026-10-17: production nginx config `nginx -t` OK; with a self-signed **test-only** certificate: HTTP → 301 HTTPS, ACME challenge served, TLS 1.3 + HTTP/2, HSTS, 403 without origin secret; merged prod compose renders; `pip-audit` no known vulnerabilities; `npm audit` 0; gitleaks no leaks (after allow-listing patterned fake test keys); no server-side names in `dist/assets`; integration 11/11 twice in a row; Vitest 31 passed five times in a row.
+Not verified (needs owner accounts): anything on Oracle, Vercel, Cloudflare, or GitHub Environments; whether Vercel proxies to an IP-address HTTPS origin (fallbacks documented).
 
 ### 2026-10-17 — QA suite (`test/qa-suite`)
 

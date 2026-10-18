@@ -1,0 +1,46 @@
+# Production servers. Mounted over templates/default.conf.template by compose.prod.yaml.
+#
+# :8080 (published as host :80)  ACME HTTP-01 challenges, container health check,
+#                                 everything else redirected to HTTPS.
+# :8443 (published as host :443) the API over TLS. The certificate is a Let's Encrypt
+#                                 certificate for the VM's public IP (or hostname), copied
+#                                 to /opt/tenq/tls by deploy/certbot-deploy-hook.sh.
+
+server {
+    listen 8080 default_server;
+    server_name _;
+    server_tokens off;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/acme;
+        default_type text/plain;
+    }
+
+    location = /nginx-health {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"ok"}';
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 8443 ssl default_server;
+    http2 on;
+    server_name _;
+
+    ssl_certificate     /etc/nginx/tls/fullchain.pem;
+    ssl_certificate_key /etc/nginx/tls/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:tenq_tls:5m;
+    ssl_session_timeout 1h;
+    ssl_session_tickets off;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    include /etc/nginx/conf.d/tenq-server.directives;
+    include /etc/nginx/conf.d/tenq-api.locations;
+}

@@ -1,0 +1,8 @@
+[Unit]
+Description=TenQ.ai nightly backup (SQLite + Redis)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/tenq/app/deploy/backup.sh
