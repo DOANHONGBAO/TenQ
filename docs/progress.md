@@ -7,6 +7,11 @@ Next: owner starts tailscaled, enables Funnel, fills production env files; then 
 
 ## Log
 
+### 2026-10-18 — Bento aurora UI (`feat/bento-aurora-ui`)
+
+- Owner request: bright bento-box layout, aurora mesh gradient, modern glossy jelly controls, clean crisp minimalist pop, livelier motion. New `index.css` (tokens, bento areas, aurora background, glossy beads and buttons, shine and squish animations); `GameScreen` renders tiles in one `.bento` grid (question + feedback grouped in `.tile-ask`, leaderboard + yesterday in `.tile-side`). Leaderboard text now says "1 winner" correctly.
+- Verified locally: `npm run lint` clean, `npm test` 38 passed, `npm run build` OK, `npm run test:e2e` 14 passed (desktop + mobile, includes the no-card-cut-off check); screenshots reviewed at desktop and phone widths.
+
 ### 2026-10-18 — README and cleanup (`docs/readme-cleanup`)
 
 - README rewritten for players and contributors: screenshots (`docs/images/`, fake test data only), how to play, features, Mermaid architecture, quick start, testing, deployment status, structure, documentation map.

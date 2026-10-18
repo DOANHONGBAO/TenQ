@@ -45,11 +45,11 @@ export function LeaderboardPanel({ client, trigger }: { client: Api; trigger: st
       )}
       {board?.me && (
         <p className="lb-me">
-          You are <strong>#{board.me.rank}</strong> of {board.total_winners} winners today.
+          You are <strong>#{board.me.rank}</strong> of {board.total_winners} {board.total_winners === 1 ? 'winner' : 'winners'} today.
         </p>
       )}
       {board && board.total_winners > 0 && !board.me && (
-        <p className="muted">{board.total_winners} winners so far today.</p>
+        <p className="muted">{board.total_winners} {board.total_winners === 1 ? 'winner' : 'winners'} so far today.</p>
       )}
     </section>
   )
