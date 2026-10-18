@@ -7,6 +7,12 @@ Next: owner starts tailscaled, enables Funnel, fills production env files; then 
 
 ## Log
 
+### 2026-10-18 — README and cleanup (`docs/readme-cleanup`)
+
+- README rewritten for players and contributors: screenshots (`docs/images/`, fake test data only), how to play, features, Mermaid architecture, quick start, testing, deployment status, structure, documentation map.
+- Removed the unused frontend `api.health()` client call. Deleted local generated files (coverage reports, caches, `dist`, `test-results`); all were git-ignored. The tracked tree had no other unused files: `deploy/` stays for the Oracle plan, `backend/tools/` for the load test in `test-report.md`.
+- Verified: `npm run lint` clean, `npm test` passed, `npm run build` OK.
+
 ### 2026-10-18 — Playful UI and winner names (`feat/playful-ui`)
 
 - Owner request: brighter playful flat 2.0 design (squircle bubbles, clay depth, animations), a win celebration (treasure chest + confetti), then a box for the winner's name; the long how-to-play panel removed (a one-line tip stays under the question box).

@@ -1,146 +1,203 @@
+<div align="center">
+
 # TenQ.ai
 
-Daily AI 10-questions deduction game. Zero login, single player: everyone gets the same secret each game day and at most 10 questions answered by an AI judge.
+**One secret word a day. Ten yes/no questions. An AI judge.**
 
-> Status: Phase 07 (React frontend). The game is playable locally end to end: start Redis, the backend, and the frontend, then open http://localhost:5173. See [docs/roadmap.md](docs/roadmap.md).
+A zero-login daily deduction game: everyone gets the same hidden word each UTC day, asks up to
+10 questions, and races up the leaderboard.
 
-## Repository layout
+[![CI](https://github.com/DOANHONGBAO/TenQ/actions/workflows/ci.yml/badge.svg)](https://github.com/DOANHONGBAO/TenQ/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-TypeScript-61DAFB?logo=react&logoColor=black)
+![Redis](https://img.shields.io/badge/Redis-7.2-DC382D?logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
+**Play:** [ten-q.vercel.app](https://ten-q.vercel.app)
+
+<img src="docs/images/game.png" alt="TenQ game screen: attempts meter, question box, hints, history, and leaderboard" width="760">
+
+</div>
+
+## How to play
+
+1. Ask an English yes/no question about today's word, like *"Is it alive?"*. The AI judge answers **YES**, **NO**, **IRRELEVANT**, or **PENALTY**.
+2. Every 2 tries unlock a **hint**, from vague to obvious (4 in total).
+3. Think you know it? Type it in the **guess box**. A guess also costs one of your 10 tries.
+4. Win with fewer questions and less time to rank higher. Winners open a treasure chest and can put their name on the leaderboard.
+
+Fair-play rules, enforced by the server: one property per question (*"Is it red and big?"* is a penalty), no questions about spelling, letters, or length, and no prompt tricks.
+
+<div align="center">
+<img src="docs/images/win.png" alt="Win celebration: an open treasure chest, confetti, and a name box" width="560">
+</div>
+
+## Features
+
+| | |
+|---|---|
+| 🗓️ **Same word for everyone** | A keyed yearly schedule picks the word for each UTC day and pins it in SQLite, so restarts never change it. |
+| 🤖 **Hybrid AI judge** | Deterministic rules first (guesses, penalties, prompt injection), then Ollama Cloud with a strict one-label JSON contract, a shared daily cache, budgets, and a circuit breaker. |
+| 🔟 **Exactly 10 tries** | Atomic Redis Lua scripts with idempotency keys: double clicks, retries, and parallel requests can never charge twice or exceed 10. |
+| 🕵️ **Zero login** | Anonymous signed HttpOnly cookie, Cloudflare Turnstile (invisible), rate limits per player and per network. No personal data stored. |
+| 🏆 **Leaderboard** | Fewer questions first, then faster time. Winners may choose a public name (validated server-side). |
+| 🎨 **Playful UI** | Flat 2.0 bubbles with squircle corners and clay depth, animations that respect *reduced motion*, accessible on keyboard and screen readers. |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    P([Player's browser]) -->|HTTPS| V[Vercel<br/>React SPA + /api proxy]
+    V -->|HTTPS + origin secret| N[Nginx<br/>rate limits, origin check]
+    N --> A[FastAPI<br/>game engine + AI judge]
+    A --> R[(Redis<br/>today's games, leaderboard)]
+    A --> S[(SQLite<br/>words, pinned days, names)]
+    A -->|HTTPS| O[Ollama Cloud]
+    A -->|verify token| T[Cloudflare Turnstile]
 ```
-backend/    FastAPI service (Python 3.12, uv)
-frontend/   React + TypeScript + Vite app
-docs/       requirements, architecture, API contract, ADRs, roadmap, progress
-.claude/    Claude Code settings and project skills
-```
 
-## Prerequisites
+The backend stack (Nginx, API, Redis) runs with Docker Compose. Only Nginx publishes a port, and it refuses requests that did not come through Vercel. Details: [docs/architecture.md](docs/architecture.md).
 
-| Tool | Version | Check |
-|------|---------|-------|
-| Git | any recent | `git --version` |
-| uv | 0.12 or newer | `uv --version` |
-| Python | 3.12 (installed by uv) | `uv python find 3.12` |
-| Node.js | 22.12 or newer (see `frontend/.nvmrc`) | `node --version` |
-| npm | 10 or newer | `npm --version` |
-| Podman or Docker | any recent | `podman --version` |
+## Tech stack
 
-On Fedora: `sudo dnf install git uv nodejs podman`.
+| Layer | Tools |
+|-------|-------|
+| Frontend | React, TypeScript, Vite, Vitest, Testing Library, Playwright |
+| Backend | Python 3.12, FastAPI, Pydantic, uv, pytest, Ruff |
+| Data | Redis 7.2 (AOF), SQLite (WAL) |
+| AI | Ollama Cloud (any chat model; mock provider for development) |
+| Security | Cloudflare Turnstile, signed cookies, origin secret, gitleaks, pip-audit, npm audit |
+| Infrastructure | Docker Compose, Nginx, GitHub Actions, Vercel, Tailscale Funnel (temporary), Oracle Cloud Always Free (planned) |
 
-## Redis
+Everything runs on free tiers and open-source software.
 
-Redis 7.2 (the last BSD-licensed release line) runs in a container:
+## Quick start
+
+You need Git, [uv](https://docs.astral.sh/uv/), Node.js 22.12+, and Podman or Docker. On Fedora: `sudo dnf install git uv nodejs podman`.
+
+### Play locally (backend + frontend)
 
 ```bash
-# for the app (port 6379)
+# 1. Redis for the app (and a second one for the tests)
 podman run -d --name tenq-redis -p 127.0.0.1:6379:6379 docker.io/library/redis:7.2-alpine
-# for the tests (port 6390, database 15 is flushed by every test)
-podman run -d --name tenq-redis-test -p 127.0.0.1:6390:6379 docker.io/library/redis:7.2-alpine redis-server --save "" --appendonly no
-```
+podman run -d --name tenq-redis-test -p 127.0.0.1:6390:6379 docker.io/library/redis:7.2-alpine \
+  redis-server --save "" --appendonly no
 
-After a reboot: `podman start tenq-redis tenq-redis-test`. Redis tests are skipped with a clear message when the test instance is not running; set `TENQ_TEST_REDIS_URL` to use another one.
-
-## Backend
-
-```bash
+# 2. Backend on http://127.0.0.1:8000
 cd backend
-uv python install 3.12          # once; uv keeps it separate from the system Python
-uv sync                         # creates backend/.venv with the exact versions in uv.lock
-cp .env.example .env            # local settings; .env is git-ignored
-python3 -c "import secrets; print(secrets.token_hex(32))"
-                                # paste into .env as TENQ_WORD_SELECTION_KEY=...
-python3 -c "import secrets; print(secrets.token_hex(32))"
-                                # run again, paste as TENQ_SESSION_SECRET=... (must differ)
-python3 -c "import secrets; print(secrets.token_hex(32))"
-                                # and once more for TENQ_PLAYER_HASH_KEY=... (must differ)
-uv run python -m app.scripts.seed_words --dev                # fake words, or:
-uv run python -m app.scripts.prepare_hints secrets/words.json  # once: add editable hints
-uv run python -m app.scripts.seed_words secrets/words.json   # private curated list
+uv sync
+cp .env.example .env    # then fill the three keys, each from: python3 -c "import secrets; print(secrets.token_hex(32))"
+uv run python -m app.scripts.seed_words --dev
 uv run uvicorn app.main:create_app --factory --reload
-```
 
-Check: `curl http://127.0.0.1:8000/api/v1/health` returns `{"status":"ok"}`, and `curl http://127.0.0.1:8000/api/v1/puzzles/today` returns today's UTC date and reset time (never the word).
-
-Players need a session first: `POST /api/v1/session` with a Turnstile token. The frontend does this automatically with Cloudflare's invisible test key (`1x00000000000000000000BB`) and the backend's test secret from `.env.example`. With `curl`, the test secret accepts any token, but each token string can be used only once:
-
-```bash
-curl -c /tmp/tenq.cookies -b /tmp/tenq.cookies -H 'Content-Type: application/json' \
-     -d '{"turnstile_token": "XXXX.DUMMY.TOKEN.XXXX"}' http://127.0.0.1:8000/api/v1/session
-curl -c /tmp/tenq.cookies -b /tmp/tenq.cookies -H "Idempotency-Key: $(python3 -c 'import uuid; print(uuid.uuid4())')" \
-     -H 'Content-Type: application/json' -d '{"question": "Is it alive?"}' \
-     http://127.0.0.1:8000/api/v1/game/today/questions
-```
-
-The curated word list (`backend/secrets/words.json`), the selection key, and the SQLite file (`backend/data/`) are secret and git-ignored. Keep an encrypted backup of the key and the list: losing the key changes every future, not yet pinned day. Interactive docs: http://127.0.0.1:8000/api/docs (disabled in production).
-
-Quality checks:
-
-```bash
-uv run ruff check .
-uv run ruff format --check .
-uv run pytest
-```
-
-## AI judge (Ollama Cloud)
-
-By default (`TENQ_AI_JUDGE=mock`) questions go through the full judge pipeline against a built-in mock: no network, no key, no cost. To use the real API:
-
-1. Create an API key at ollama.com and put it in `backend/.env` as `TENQ_OLLAMA_API_KEY=...` (never commit or paste it anywhere).
-2. Ollama does not publish which models the free plan includes. Check what your key can use (1 request, plus 1 per probe):
-   ```bash
-   uv run python -m app.scripts.check_ollama_models
-   uv run python -m app.scripts.check_ollama_models --probe <model-name>
-   ```
-3. Set `TENQ_OLLAMA_MODEL=<model-name>` and `TENQ_AI_JUDGE=ollama`, then restart the API. For thinking models such as `gpt-oss` also set `TENQ_OLLAMA_THINK=low`: otherwise reasoning can use up `num_predict` and the JSON answer is cut off (`done_reason=length`).
-4. Optional, costs quota: measure accuracy and consistency on a small labelled set, and run the 2-request smoke test:
-   ```bash
-   uv run python -m app.scripts.evaluate_judge --live --max-requests 30 --repeat 2
-   TENQ_LIVE_AI=1 uv run pytest -m live_ai
-   ```
-
-`TENQ_AI_HOURLY_BUDGET` and `TENQ_AI_DAILY_BUDGET` cap model HTTP attempts (retries included). When a budget is used up or the provider is down, players get a polite "try again" message and are not charged.
-
-## Docker Compose (API + Redis + Nginx)
-
-```bash
-infra/scripts/gen-env.sh            # creates infra/env/*.env with random local secrets
-docker compose up -d --build        # or: podman-compose up -d --build
-docker compose run --rm -T api python -m app.scripts.seed_words - < backend/secrets/words.json
-infra/scripts/smoke.sh              # end-to-end checks through nginx on http://127.0.0.1:8080
-```
-
-Only nginx publishes a port. Details, request path, and tests: [docs/infrastructure.md](docs/infrastructure.md).
-
-Temporary hosting on the owner's computer (Vercel + Tailscale Funnel): [docs/home-hosting.md](docs/home-hosting.md). Production (Oracle Cloud Always Free + Vercel, prepared but not yet deployed): [docs/deployment.md](docs/deployment.md), [docs/ci-cd.md](docs/ci-cd.md), [docs/operations-runbook.md](docs/operations-runbook.md), [docs/rollback.md](docs/rollback.md).
-
-## Frontend
-
-```bash
+# 3. Frontend on http://localhost:5173 (new terminal)
 cd frontend
-npm ci                          # exact versions from package-lock.json
-npm run dev                     # http://localhost:5173
+npm ci
+npm run dev
 ```
 
-The dev server proxies `/api` to the backend on port 8000, so start the backend first. Frontend structure, state flow, and accessibility notes: [docs/frontend.md](docs/frontend.md).
+The default judge is a built-in mock: no network, no key, no cost. After a reboot: `podman start tenq-redis tenq-redis-test`.
 
-Quality checks:
+### Run the full stack in containers
 
 ```bash
-npm run lint                    # ESLint, zero warnings allowed
-npm test                        # Vitest component and unit tests
-npm run test:e2e                # Playwright E2E (run `npx playwright install chromium` once)
-npm run build                   # TypeScript type check (tsc -b) + production build
+infra/scripts/gen-env.sh                  # random local secrets in infra/env/*.env
+podman-compose up -d --build              # or: docker compose up -d --build
+podman-compose run --rm -T api python -m app.scripts.seed_words - < backend/secrets/words.json
+infra/scripts/smoke.sh                    # end-to-end checks through nginx on :8080
 ```
 
-## Configuration
+<details>
+<summary><b>Use the real AI judge (Ollama Cloud)</b></summary>
 
-| Environment | How it is selected | Notes |
-|-------------|--------------------|-------|
-| `local` | `TENQ_ENV=local` in `backend/.env` | Readable logs, API docs on |
-| `test` | set by the pytest fixtures | Ignores any `.env` file |
-| `production` | `TENQ_ENV=production` on the server | JSON logs, API docs off, https-only CORS, no DEBUG |
+1. Create an API key at ollama.com and put it in `backend/.env` as `TENQ_OLLAMA_API_KEY=...` (never commit it).
+2. List the models your key can use: `uv run python -m app.scripts.check_ollama_models` (add `--probe <model>` to test one).
+3. Set `TENQ_AI_JUDGE=ollama` and `TENQ_OLLAMA_MODEL=<model>`. For thinking models such as `gpt-oss`, also set `TENQ_OLLAMA_THINK=low`.
+4. Optional, uses quota: `uv run python -m app.scripts.evaluate_judge --live --max-requests 30` and `TENQ_LIVE_AI=1 uv run pytest -m live_ai`.
 
-All backend settings are `TENQ_*` environment variables listed in `backend/.env.example`. Frontend `VITE_*` variables are public (bundled into JavaScript) and must never hold secrets. Real `.env` files are never committed.
+`TENQ_AI_HOURLY_BUDGET` and `TENQ_AI_DAILY_BUDGET` cap AI calls. When a budget runs out or the provider is down, players see a polite "try again" and are not charged.
+</details>
+
+<details>
+<summary><b>Word list and hints</b></summary>
+
+The real word list lives in `backend/secrets/words.json` (git-ignored, never published). Each entry has a word, metadata for the judge, and 4 hints from vague to obvious.
+
+```bash
+uv run python -m app.scripts.prepare_hints secrets/words.json   # fill missing hints (keeps yours)
+uv run python -m app.scripts.seed_words secrets/words.json      # load into SQLite
+```
+
+Editing hints never changes which word belongs to which day. Keep an offline backup of the list and of `TENQ_WORD_SELECTION_KEY`.
+</details>
+
+## Testing
+
+```bash
+# backend/
+uv run ruff check . && uv run ruff format --check .
+uv run pytest                     # Redis tests need tenq-redis-test on :6390
+
+# frontend/
+npm run lint                      # ESLint, zero warnings
+npm test                          # Vitest component and unit tests
+npm run test:e2e                  # Playwright, desktop + mobile (npx playwright install chromium once)
+npm run build                     # tsc type check + production build
+
+# repository root
+infra/scripts/integration.sh      # container integration test
+```
+
+CI runs all of this on every pull request, plus dependency audits, secret scanning, and an arm64 image build. See [docs/ci-cd.md](docs/ci-cd.md).
+
+## Deployment
+
+| Target | Status | Guide |
+|--------|--------|-------|
+| Vercel (frontend) + Tailscale Funnel to the owner's computer (backend) | Live, temporary | [docs/home-hosting.md](docs/home-hosting.md) |
+| Vercel + Oracle Cloud Always Free VM | Prepared, not deployed | [docs/deployment.md](docs/deployment.md) |
+
+Day-to-day on the home host: `infra/scripts/home-host.sh up` after a reboot or a `git pull`, and `home-host.sh down` to stop (data is kept). Operations, backups, and rollback: [runbook](docs/operations-runbook.md), [rollback](docs/rollback.md).
+
+## Project structure
+
+```
+backend/
+  app/
+    api/            HTTP routes and dependencies (sessions, rate limits)
+    core/           settings, errors, logging, security middleware
+    models/         pure game rules: questions, judge rules, hints, names, schedule
+    services/       use cases: game, daily word, AI judge, sessions
+    repositories/   Redis (Lua scripts) and SQLite (migrations)
+    integrations/   Ollama client, prompt, Turnstile, mock provider
+    scripts/        seed words, prepare hints, evaluate the judge
+  tests/            pytest suite
+frontend/
+  src/
+    api/            typed API client with response validation
+    state/          reducer, provider, hooks (the server is the source of truth)
+    features/       game, leaderboard, celebration, session
+  e2e/              Playwright tests with a fake backend
+infra/              nginx templates, Redis config, env examples, scripts
+deploy/             Oracle VM deploy, rollback, backup, systemd units
+docs/               requirements, architecture, API contract, ADRs, runbooks
+```
 
 ## Documentation
 
-Start with [CLAUDE.md](CLAUDE.md), then [docs/requirements.md](docs/requirements.md), [docs/architecture.md](docs/architecture.md), and [docs/progress.md](docs/progress.md).
+| Read this | For |
+|-----------|-----|
+| [docs/requirements.md](docs/requirements.md) | Game rules and product decisions |
+| [docs/architecture.md](docs/architecture.md) | How the parts fit together |
+| [docs/api-contract.md](docs/api-contract.md) | Every endpoint, schema, and error code |
+| [docs/data-model.md](docs/data-model.md) | Redis keys and SQLite tables |
+| [docs/security-threat-model.md](docs/security-threat-model.md) | Threats and mitigations |
+| [docs/decisions/](docs/decisions/) | Architecture decision records |
+| [docs/frontend.md](docs/frontend.md) | Components, state flow, visual design, accessibility |
+| [docs/progress.md](docs/progress.md) | What changed and when |
+| [CLAUDE.md](CLAUDE.md) | Working rules for AI-assisted development |
+
+## Configuration and secrets
+
+Backend settings are `TENQ_*` environment variables (see [backend/.env.example](backend/.env.example) and [infra/env/](infra/env/)). Frontend `VITE_*` variables end up in the public bundle and never hold secrets. Real `.env` files, the word list, and the database are git-ignored and must never be committed.
