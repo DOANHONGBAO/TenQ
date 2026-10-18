@@ -16,8 +16,6 @@ A zero-login daily deduction game: everyone gets the same hidden word each UTC d
 
 **Play:** [ten-q.vercel.app](https://ten-q.vercel.app)
 
-<img src="docs/images/game.png" alt="TenQ game screen: attempts meter, question box, hints, history, and leaderboard" width="760">
-
 </div>
 
 ## How to play
@@ -37,12 +35,12 @@ Fair-play rules, enforced by the server: one property per question (*"Is it red 
 
 | | |
 |---|---|
-| 🗓️ **Same word for everyone** | A keyed yearly schedule picks the word for each UTC day and pins it in SQLite, so restarts never change it. |
-| 🤖 **Hybrid AI judge** | Deterministic rules first (guesses, penalties, prompt injection), then Ollama Cloud with a strict one-label JSON contract, a shared daily cache, budgets, and a circuit breaker. |
-| 🔟 **Exactly 10 tries** | Atomic Redis Lua scripts with idempotency keys: double clicks, retries, and parallel requests can never charge twice or exceed 10. |
-| 🕵️ **Zero login** | Anonymous signed HttpOnly cookie, Cloudflare Turnstile (invisible), rate limits per player and per network. No personal data stored. |
-| 🏆 **Leaderboard** | Fewer questions first, then faster time. Winners may choose a public name (validated server-side). |
-| 🎨 **Playful UI** | Flat 2.0 bubbles with squircle corners and clay depth, animations that respect *reduced motion*, accessible on keyboard and screen readers. |
+| **Same word for everyone** | A keyed yearly schedule picks the word for each UTC day and pins it in SQLite, so restarts never change it. |
+| **Hybrid AI judge** | Deterministic rules first (guesses, penalties, prompt injection), then Ollama Cloud with a strict one-label JSON contract, a shared daily cache, budgets, and a circuit breaker. |
+| **Exactly 10 tries** | Atomic Redis Lua scripts with idempotency keys: double clicks, retries, and parallel requests can never charge twice or exceed 10. |
+| **Zero login** | Anonymous signed HttpOnly cookie, Cloudflare Turnstile (invisible), rate limits per player and per network. No personal data stored. |
+| **Leaderboard** | Fewer questions first, then faster time. Winners may choose a public name (validated server-side). |
+| **Playful UI** | Flat 2.0 bubbles with squircle corners and clay depth, animations that respect *reduced motion*, accessible on keyboard and screen readers. |
 
 ## Architecture
 
