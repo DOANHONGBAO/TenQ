@@ -4,6 +4,7 @@ import type { GameState } from '../api/types'
 import { describeAskError } from '../state/errorMessages'
 import { gameReducer, initialState } from '../state/gameReducer'
 import { ApiError } from '../api/client'
+import { restoreFocus } from './focus'
 import { challengeNumber, formatCountdown, formatDuration, previousDate } from './format'
 import { buildShareText } from './share'
 import { getTurnstileToken } from './turnstile'
@@ -118,5 +119,42 @@ describe('turnstile', () => {
     expect(execute).toHaveBeenCalledTimes(1)
     expect(reset).toHaveBeenCalledWith('widget-1')
     expect(document.body.querySelector('div[hidden]')).toBeNull()
+  })
+})
+
+describe('restoreFocus', () => {
+  function setup() {
+    document.body.innerHTML =
+      '<form id="ask"><input id="q" /><button id="b">Ask</button></form><form><input id="g" /></form>'
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      cb(0)
+      return 0
+    })
+    const get = (id: string) => document.getElementById(id) as HTMLElement
+    return { form: get('ask'), question: get('q'), button: get('b'), guess: get('g') }
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('returns focus when nothing else is focused', () => {
+    const { form, question } = setup()
+    restoreFocus(question, form)
+    expect(document.activeElement).toBe(question)
+  })
+
+  it('returns focus from a control inside the same form', () => {
+    const { form, question, button } = setup()
+    button.focus()
+    restoreFocus(question, form)
+    expect(document.activeElement).toBe(question)
+  })
+
+  it('does not steal focus from a box the player moved to', () => {
+    const { form, question, guess } = setup()
+    guess.focus()
+    restoreFocus(question, form)
+    expect(document.activeElement).toBe(guess)
   })
 })

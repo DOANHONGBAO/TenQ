@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { SyntheticEvent } from 'react'
 
+import { restoreFocus } from '../../lib/focus'
 import { useGame } from '../../state/GameContext'
 
 const MAX_LENGTH = 150
@@ -20,11 +21,12 @@ export function QuestionForm() {
 
   const onSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const form = event.currentTarget
     if (disabled || trimmed.length === 0) return
     const ok = await ask(trimmed)
     if (ok) setQuestion('')
     // Return focus to this input when the answer arrives, so keyboard play keeps flowing.
-    requestAnimationFrame(() => inputRef.current?.focus())
+    restoreFocus(inputRef.current, form)
   }
 
   return (
