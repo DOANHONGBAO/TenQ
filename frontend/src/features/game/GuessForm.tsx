@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import type { SyntheticEvent } from 'react'
 
+import { restoreFocus } from '../../lib/focus'
 import { useGame } from '../../state/GameContext'
 
 /** Direct guess of the secret word. Judged exactly by the server; costs one of the 10 tries. */
@@ -14,10 +15,11 @@ export function GuessForm() {
 
   const onSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const form = event.currentTarget
     if (state.submitting || trimmed.length === 0) return
     const ok = await guess(trimmed)
     if (ok) setWord('')
-    requestAnimationFrame(() => inputRef.current?.focus())
+    restoreFocus(inputRef.current, form)
   }
 
   return (

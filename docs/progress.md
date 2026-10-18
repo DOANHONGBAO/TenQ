@@ -7,6 +7,13 @@ Next: owner starts tailscaled, enables Funnel, fills production env files; then 
 
 ## Log
 
+### 2026-10-18 — Frontend focus fix (`fix/frontend-test-timeout`)
+
+- CI `frontend` failed on `main` after PR #11 ("unlocks one hint after every two tries"). Root cause from the CI DOM dump: the word typed into the guess box ended up in the question box. After an answer, `QuestionForm` returned focus to its input on the next animation frame, even if the player had already moved to the guess box. Real players could hit the same bug by clicking the guess box right after an answer.
+- New `src/lib/focus.ts` `restoreFocus()` only refocuses when nothing else outside the form has focus; used by `QuestionForm` and `GuessForm`. Three unit tests in `lib.test.ts`.
+- Verified locally: `npm test` 34/34, `npm run lint` clean, `npm run build` OK, `npm run test:e2e` 14/14.
+- Home hosting live checks (2026-10-18): Funnel `/nginx-health` 200; direct `/api/v1/health` 403; through `https://ten-q.vercel.app/api/v1/health` 200 with `origin_ok:1` and the real client IP; Turnstile Siteverify accepted, `POST /api/v1/session` 201.
+
 ### 2026-10-18 — Temporary home hosting (`feat/home-host`)
 
 Done: `infra/scripts/home-host.sh` (preflight of production env files, compose up with health wait, Tailscale Funnel to `127.0.0.1:8080`, down keeps volumes); `docs/home-hosting.md`; CD automatic deploys now require the repository variable `DEPLOY_ENABLED=true` (the first CD run after PR #10 failed only because no deploy secrets exist yet).
