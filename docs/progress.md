@@ -7,6 +7,10 @@ Next: owner starts tailscaled, enables Funnel, fills production env files; then 
 
 ## Log
 
+### 2026-10-18 — Home hosting update fix (`fix/home-host-recreate`)
+
+- After merging PR #13 the live API still ran the old code: `podman-compose up -d --build` rebuilt the image but kept the running container. `home-host.sh up` now passes `--force-recreate` (volumes kept), and `home-hosting.md` explains how to apply updates. Checked with `sh -n`.
+
 ### 2026-10-18 — Trick-question rules (`feat/question-rules`)
 
 - Owner decision: questions about the word's spelling (letters, length, alphabetical order, syllables, rhymes, part of speech) and questions with more than one property or candidate ("Is it red and big?", "Is it a cat or a dog?") are `PENALTY` and use one question. `requirements.md` OQ-01 and OQ-09 (now Accepted), ADR 0010 note.

@@ -45,6 +45,8 @@ infra/scripts/home-host.sh down      # Funnel off, containers stopped, volumes k
 ```
 After a reboot run `home-host.sh up` again (rootless Podman does not start containers at boot by itself).
 
+To apply new code or changed `infra/env/*.env` values: `git pull`, then `home-host.sh up` (it rebuilds and recreates the containers; volumes are kept). After editing hints in `backend/secrets/words.json`, run the seed command again.
+
 ## 4. Vercel and Turnstile (OWNER)
 
 - Cloudflare → Turnstile → Add widget: hostname `<project>.vercel.app`, mode **Invisible**. Site key → Vercel; secret → `api.env`.
