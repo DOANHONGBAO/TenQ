@@ -104,7 +104,6 @@ export function createFakeServer(overrides: Partial<FakeServer> = {}): FakeServe
   }
 
   server.api = {
-    health: vi.fn(() => Promise.resolve(true)),
     createSession: vi.fn((token: string) => {
       if (!token) return Promise.reject(httpError(403, 'TURNSTILE_FAILED'))
       server.hasSession = true

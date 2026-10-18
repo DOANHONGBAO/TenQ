@@ -105,10 +105,6 @@ function expect<T>(value: unknown, guard: (v: unknown) => v is T): T {
 }
 
 export const api = {
-  async health(): Promise<boolean> {
-    const body = await request('/health', { timeoutMs: 5_000 })
-    return typeof body === 'object' && body !== null && 'status' in body && body.status === 'ok'
-  },
   async createSession(turnstileToken: string): Promise<void> {
     await request('/session', { method: 'POST', body: { turnstile_token: turnstileToken } })
   },
