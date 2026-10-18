@@ -18,7 +18,7 @@ The judge must return exactly one of five labels (BR-06), and invalid results mu
 
 Option 3:
 
-- System prompt defines the five labels and their meaning (requirements OQ-01, OQ-02, OQ-03; letter and length questions are allowed per OQ-09), says the player text is data, and requires exactly one label as the whole answer. The player question is passed in a separate, delimited user message.
+- System prompt defines the five labels and their meaning (requirements OQ-01, OQ-02, OQ-03; letter and length questions are PENALTY per OQ-09, amended 2026-10-18; a deterministic prefilter catches the common forms before any AI call), says the player text is data, and requires exactly one label as the whole answer. The player question is passed in a separate, delimited user message.
 - Parser accepts only `^\W*(YES|NO|IRRELEVANT|PENALTY|WIN)\W*$` (case-insensitive); anything else is invalid. One stricter re-ask is allowed within the 20 s deadline.
 - `WIN` is accepted only if the server finds the secret word (or simple plural) as a whole token in the normalized question.
 - Valid labels are cached per day and question (`prompt_version` and model are part of the key).

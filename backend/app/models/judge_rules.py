@@ -31,6 +31,26 @@ _MANIPULATION = re.compile(
     r")"
 )
 
+# Questions about the word's spelling instead of the thing it names (OQ-09): letters, length,
+# alphabetical order, sounds, grammar. They let players find the word by search, not deduction.
+_WORD_FORM = re.compile(
+    r"\b("
+    r"letters?|spell(s|ed|ing)?|vowels?|consonants?|syllables?|rhym(e|es|ing)"
+    r"|alphabet(ical(ly)?)?|dictionary|initials?|acronym|abbreviat\w*|anagram|palindrome"
+    r"|nouns?|verbs?|adjectives?|adverbs?|part of speech|plural|singular|compound word"
+    r")\b"
+    r"|\b\d+ characters?\b"
+    # "Does it start with S?", "Does it end in an e?", "Does it contain t?" (letter at the end,
+    # so "Does it start with a bang?" is not caught)
+    r"|\b(start|starts|begin|begins|end|ends|contain|contains|include|includes)"
+    r" (with |in )?(an? |the )?[a-z]$"
+    # "Is there an e in it?"
+    r"|\bis there (an? )?[a-z] in (it|the word)$"
+)
+
+# One property per question (OQ-01): "Is it red and big?", "Is it a cat or a dog?", lists.
+_COMPOUND = re.compile(r",|;|&|/|\+|\b(and|or|nor|but|either|neither|both|also|as well as|plus)\b")
+
 
 def prefilter(question: Question) -> Answer | None:
     """PENALTY for inputs that are clearly not a genuine yes/no question; else None."""
@@ -40,6 +60,8 @@ def prefilter(question: Question) -> Answer | None:
     if _MANIPULATION.search(text):
         return Answer.PENALTY
     if _OPEN_ENDED.match(text) or _OPEN_ENDED_REQUEST.match(text):
+        return Answer.PENALTY
+    if _WORD_FORM.search(text) or _COMPOUND.search(text):
         return Answer.PENALTY
     return None
 

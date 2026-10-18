@@ -6,6 +6,11 @@ export function RulesPanel({ defaultOpen }: { defaultOpen: boolean }) {
         <li>There is one secret English word per day, the same for everyone.</li>
         <li>Ask up to 10 English yes/no questions, like “Is it an animal?”.</li>
         <li>
+          Ask about <b>one</b> property at a time (“Is it red?”, not “Is it red and big?”), and
+          about the thing itself, not its spelling: questions about letters, length, or
+          alphabetical order get a <b>PENALTY</b>.
+        </li>
+        <li>
           The AI judge answers <b>YES</b>, <b>NO</b>, <b>IRRELEVANT</b>, or <b>PENALTY</b> for
           questions that are not genuine yes/no questions. Every answer uses one question.
         </li>
