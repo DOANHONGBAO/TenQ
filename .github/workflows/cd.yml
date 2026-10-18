@@ -23,9 +23,12 @@ concurrency:
 
 jobs:
   deploy:
+    # Automatic deploys run only once the VM exists: set the repository variable
+    # DEPLOY_ENABLED=true (Settings > Secrets and variables > Actions > Variables).
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+      (vars.DEPLOY_ENABLED == 'true' &&
+       github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Repository Settings > Environments > production: add the secrets below and, if wanted,

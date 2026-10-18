@@ -5,7 +5,7 @@ Two separate workflows:
 | Workflow | File | Trigger | Has secrets? | Deploys? |
 |----------|------|---------|--------------|----------|
 | CI | `.github/workflows/ci.yml` | every pull request and every push to `main` | no | no |
-| CD | `.github/workflows/cd.yml` | after CI **succeeds** for a **push to main**; or manually with a SHA | yes (Environment `production`) | backend only |
+| CD | `.github/workflows/cd.yml` | after CI **succeeds** for a **push to main** and only when the repository variable `DEPLOY_ENABLED=true`; or manually with a SHA | yes (Environment `production`) | backend only |
 
 The frontend is deployed by Vercel's own GitHub integration on every push to `main` (production) and on pull requests (previews).
 
@@ -47,6 +47,7 @@ Settings > Environments > `production`:
 | `DEPLOY_SSH_KEY` | secret | private key of a key pair made **only** for CD: `ssh-keygen -t ed25519 -f tenq_deploy -N ""`; put `tenq_deploy.pub` in `/home/deploy/.ssh/authorized_keys` on the VM |
 | `DEPLOY_KNOWN_HOSTS` | secret | `ssh-keyscan -t ed25519 VM_IP`, after comparing the fingerprint with `sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the VM |
 | `PUBLIC_URL` | variable | `https://<project>.vercel.app` |
+| `DEPLOY_ENABLED` | variable (repository) | `true` once the VM is ready; until then automatic deploys are skipped (home hosting, `home-hosting.md`, is updated by hand) |
 
 SSH reachability: GitHub-hosted runners use changing IP ranges, so port 22 must accept them. Options (all free): (a) open 22 to `0.0.0.0/0` with key-only auth (the Ubuntu default) and the `restrict` option on the deploy key in `authorized_keys` (a `from=` filter is not possible because runner IPs change); (b) keep 22 restricted and deploy manually with `sh deploy/remote-deploy.sh <sha>`; (c) a self-hosted runner on the VM (no inbound SSH, but runs workflow code on production — only for this private, owner-only repository). Default recommendation: (a) with `fail2ban` installed.
 
