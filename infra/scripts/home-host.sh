@@ -42,7 +42,9 @@ wait_ready() {
 case "${1:-status}" in
     up)
         preflight || exit 1
-        $COMPOSE up -d --build >/dev/null 2>&1 || true
+        # --force-recreate: podman-compose keeps running containers otherwise, so new images
+        # and changed env files would not take effect. Volumes are kept.
+        $COMPOSE up -d --build --force-recreate >/dev/null 2>&1 || true
         if ! wait_ready; then echo "stack is not healthy; see: $COMPOSE logs api nginx"; exit 1; fi
         # Publish nginx through Funnel (TLS terminated by tailscaled, background config).
         tailscale funnel --bg "http://127.0.0.1:$PORT" >/dev/null || exit 1
