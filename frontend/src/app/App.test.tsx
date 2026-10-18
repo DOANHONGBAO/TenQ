@@ -203,7 +203,11 @@ describe('end of game', () => {
     await askQuestion(user, 'Is it alive?')
     await askQuestion(user, 'Is it a walrus?')
 
-    const heading = await screen.findByRole('heading', { name: /you got it/i })
+    const dialog = await screen.findByRole('dialog', { name: /you got it/i })
+    await user.click(await within(dialog).findByRole('button', { name: /maybe later/i }, { timeout: 3000 }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    const heading = screen.getByRole('heading', { name: /solved/i })
     expect(heading).toHaveFocus()
     expect(screen.getByText(/solved in/i)).toHaveTextContent('Solved in 2 of 10 questions in 2:05')
     expect(screen.queryByLabelText(/ask a yes\/no question/i)).not.toBeInTheDocument()
@@ -264,7 +268,7 @@ describe('leaderboard', () => {
       leaderboard: {
         game_date: '2026-10-20',
         entries: [{ rank: 1, display_name: 'Player-ABC123', questions: 3, duration_ms: 61_000 }],
-        me: { rank: 1, questions: 3, duration_ms: 61_000 },
+        me: { rank: 1, display_name: 'Player-ABC123', questions: 3, duration_ms: 61_000 },
         total_winners: 1,
       },
     })
@@ -325,7 +329,7 @@ describe('hints and guesses', () => {
 
     await guessWord(user, 'Walrus')
 
-    expect(await screen.findByRole('heading', { name: /you got it/i })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: /you got it/i })).toBeInTheDocument()
     expect(screen.queryByLabelText(/guess the word/i)).not.toBeInTheDocument()
     expect(server.api.guess).toHaveBeenCalledTimes(1)
   })
@@ -337,5 +341,77 @@ describe('hints and guesses', () => {
     await guessWord(user, 'two words')
     expect(await screen.findByText(/single english word/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /questions left/i })).toHaveTextContent('10 of 10')
+  })
+})
+
+describe('win celebration and leaderboard name', () => {
+  async function win(user: ReturnType<typeof userEvent.setup>) {
+    await ready()
+    await askQuestion(user, 'Is it a walrus?')
+    return screen.findByRole('dialog', { name: /you got it/i })
+  }
+
+  it('opens the chest, then saves the name the winner types', async () => {
+    const server = createFakeServer({ hasSession: true, nextAnswers: ['WIN'] })
+    const { user } = renderApp(server)
+    const dialog = await win(user)
+
+    const name = await within(dialog).findByLabelText(/your name on today’s leaderboard/i, {}, { timeout: 3000 })
+    await waitFor(() => {
+      expect(name).toHaveFocus()
+    })
+    await user.type(name, '  Trang ')
+    await user.click(within(dialog).getByRole('button', { name: /save my name/i }))
+
+    expect(await within(dialog).findByText(/on the board as/i)).toHaveTextContent('Trang')
+    expect(server.api.setName).toHaveBeenCalledWith('Trang')
+    expect(localStorage.getItem('tenq.playerName')).toBe('Trang')
+    await user.click(within(dialog).getByRole('button', { name: /awesome/i }))
+    expect(screen.getByText(/on the leaderboard as/i)).toHaveTextContent('Trang')
+    expect(screen.getByRole('button', { name: /change my name/i })).toBeInTheDocument()
+  })
+
+  it('shows the server error and keeps the dialog open', async () => {
+    const server = createFakeServer({ hasSession: true, nextAnswers: ['WIN'] })
+    const { user } = renderApp(server)
+    const dialog = await win(user)
+    const name = await within(dialog).findByLabelText(/your name/i, {}, { timeout: 3000 })
+
+    await user.type(name, 'x')
+    await user.click(within(dialog).getByRole('button', { name: /save my name/i }))
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(/2 to 20/i)
+    expect(server.api.setName).not.toHaveBeenCalled()
+
+    vi.mocked(server.api.setName).mockRejectedValueOnce(httpError(422, 'INVALID_NAME'))
+    await user.type(name, 'yz')
+    await user.click(within(dialog).getByRole('button', { name: /save my name/i }))
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('Escape closes the celebration', async () => {
+    const server = createFakeServer({ hasSession: true, nextAnswers: ['WIN'] })
+    const { user } = renderApp(server)
+    await win(user)
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('does not celebrate a game that was already won before this visit', async () => {
+    const server = createFakeServer({ hasSession: true, nextAnswers: ['WIN'] })
+    server.status = 'won'
+    server.history.push({
+      number: 1,
+      question: 'Is it a walrus?',
+      answer: 'WIN',
+      asked_at: server.serverTime,
+      kind: 'question',
+    })
+    const { user } = renderApp(server)
+    await screen.findByRole('heading', { name: /solved/i })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /add my name/i }))
+    expect(await screen.findByRole('dialog', { name: /leaderboard name/i })).toBeInTheDocument()
   })
 })

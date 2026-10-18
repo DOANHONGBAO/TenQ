@@ -28,8 +28,13 @@ export function LeaderboardPanel({ client, trigger }: { client: Api; trigger: st
           </thead>
           <tbody>
             {board.entries.map((entry) => (
-              <tr key={`${String(entry.rank)}-${entry.display_name}`}>
-                <td>{entry.rank}</td>
+              <tr
+                key={`${String(entry.rank)}-${entry.display_name}`}
+                className={entry.rank === board.me?.rank ? 'lb-row-me' : undefined}
+              >
+                <td>
+                  <span className={`lb-rank lb-rank-${String(Math.min(entry.rank, 4))}`}>{entry.rank}</span>
+                </td>
                 <td>{entry.display_name}</td>
                 <td>{entry.questions}</td>
                 <td>{formatDuration(entry.duration_ms)}</td>

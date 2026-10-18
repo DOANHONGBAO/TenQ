@@ -121,6 +121,16 @@ CREATE INDEX idx_results_leaderboard
     ON game_results (game_date, outcome, questions_used, duration_ms, finished_at);
 ```
 
+```sql
+-- migration 0003: public names chosen by winners (OQ-07)
+CREATE TABLE player_names (
+    player_hash TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+```
+
+- Leaderboard names: the API reads Redis for ranks, then one `SELECT ... WHERE player_hash IN (SELECT value FROM json_each(?))` for the chosen names.
 - Pinning: `INSERT OR IGNORE INTO daily_puzzles ...` then `SELECT word ...`. The primary key makes concurrent pinning safe.
 - Results: `INSERT OR IGNORE` makes the write idempotent, so the retry worker can replay safely.
 - Historical leaderboard: `WHERE game_date = ? AND outcome = 'won' ORDER BY questions_used, duration_ms, finished_at LIMIT ?`.

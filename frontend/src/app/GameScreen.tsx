@@ -1,4 +1,7 @@
+import { useState } from 'react'
+
 import type { Api } from '../api/client'
+import { WinCelebration } from '../features/celebration/WinCelebration'
 import { AttemptsMeter } from '../features/game/AttemptsMeter'
 import { Feedback } from '../features/game/Feedback'
 import { GameHeader } from '../features/game/GameHeader'
@@ -7,7 +10,6 @@ import { HintsPanel } from '../features/game/HintsPanel'
 import { HistoryList } from '../features/game/HistoryList'
 import { QuestionForm } from '../features/game/QuestionForm'
 import { ResultPanel } from '../features/game/ResultPanel'
-import { RulesPanel } from '../features/game/RulesPanel'
 import { StatusBanner } from '../features/game/StatusBanner'
 import { YesterdayAnswer } from '../features/game/YesterdayAnswer'
 import { LeaderboardPanel } from '../features/leaderboard/LeaderboardPanel'
@@ -18,6 +20,17 @@ import { PrivacyNotice } from './PrivacyNotice'
 export function GameScreen({ client }: { client: Api }) {
   const { state, dismissNotice, refresh } = useGame()
   const game = state.game
+  const [dialog, setDialog] = useState<'celebrate' | 'name' | null>(null)
+  const [playerName, setPlayerName] = useState<string | null>(null)
+
+  // Celebrate only a win that just happened here, not a finished game loaded on a later visit.
+  // (State adjusted during render when a new answer arrives, as React recommends over an effect.)
+  const last = state.lastAnswer
+  const [seenLast, setSeenLast] = useState(last)
+  if (last !== seenLast) {
+    setSeenLast(last)
+    if (last?.answer === 'WIN') setDialog('celebrate')
+  }
 
   return (
     <div className="app-shell">
@@ -53,10 +66,15 @@ export function GameScreen({ client }: { client: Api }) {
         {game && (
           <>
             <div className="play-column">
-              <RulesPanel defaultOpen={game.status === 'not_started'} />
               <AttemptsMeter game={game} />
               {isFinished(game) ? (
-                <ResultPanel game={game} />
+                <ResultPanel
+                  game={game}
+                  playerName={playerName}
+                  onChooseName={() => {
+                    setDialog('name')
+                  }}
+                />
               ) : (
                 <>
                   <QuestionForm />
@@ -68,13 +86,28 @@ export function GameScreen({ client }: { client: Api }) {
               <HistoryList history={game.history} />
             </div>
             <aside className="side-column">
-              <LeaderboardPanel client={client} trigger={`${game.game_date}:${game.status}`} />
+              <LeaderboardPanel
+                client={client}
+                trigger={`${game.game_date}:${game.status}:${playerName ?? ''}`}
+              />
               <YesterdayAnswer key={game.game_date} client={client} gameDate={game.game_date} />
             </aside>
           </>
         )}
       </main>
       <PrivacyNotice />
+      {game && dialog !== null && (
+        <WinCelebration
+          client={client}
+          game={game}
+          mode={dialog}
+          onClose={() => {
+            setDialog(null)
+            document.getElementById('result-title')?.focus()
+          }}
+          onNameSaved={setPlayerName}
+        />
+      )}
     </div>
   )
 }

@@ -6,10 +6,12 @@ import {
   type AskResult,
   type GameState,
   type Leaderboard,
+  type PlayerName,
   type PuzzleAnswer,
   isAskResult,
   isGameState,
   isLeaderboard,
+  isPlayerName,
   isPuzzleAnswer,
 } from './types'
 
@@ -132,6 +134,10 @@ export const api = {
   },
   async leaderboard(limit = 20): Promise<Leaderboard> {
     return expect(await request(`/leaderboard/today?limit=${String(limit)}`), isLeaderboard)
+  },
+  /** Today's winner chooses the name shown on the leaderboard (server validates it). */
+  async setName(name: string): Promise<PlayerName> {
+    return expect(await request('/players/me/name', { method: 'POST', body: { name } }), isPlayerName)
   },
   async answer(gameDate: string): Promise<PuzzleAnswer> {
     return expect(await request(`/puzzles/${gameDate}/answer`), isPuzzleAnswer)

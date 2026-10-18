@@ -34,6 +34,7 @@ const TURNSTILE_STUB = `
 `
 
 export async function installFakeBackend(page: Page, overrides: Partial<FakeBackend> = {}) {
+  let playerName: string | null = null
   const state: FakeBackend = {
     secret: 'walrus',
     answers: [],
@@ -93,16 +94,33 @@ export async function installFakeBackend(page: Page, overrides: Partial<FakeBack
       return json(route, 201, { display_name: 'Player-E2E001' })
     }
     if (path === '/leaderboard/today') {
+      const me =
+        status() === 'won'
+          ? {
+              rank: state.winners.length + 1,
+              display_name: playerName ?? 'Player-E2E001',
+              questions: state.history.length,
+              duration_ms: 125_000,
+            }
+          : null
       return json(route, 200, {
         game_date: '2026-10-20',
-        entries: state.winners,
-        me: null,
-        total_winners: state.winners.length,
+        entries: me ? [...state.winners, me] : state.winners,
+        me,
+        total_winners: state.winners.length + (me ? 1 : 0),
       })
     }
     if (path.startsWith('/puzzles/')) return error(route, 404, 'NOT_FOUND')
     if (!hasSession) return error(route, 401, 'SESSION_REQUIRED')
     if (path === '/game/today') return json(route, 200, game())
+    if (path === '/players/me/name' && request.method() === 'POST') {
+      if (status() !== 'won') return error(route, 409, 'NOT_A_WINNER')
+      const body = request.postDataJSON() as { name?: string }
+      const name = (body.name ?? '').trim()
+      if (name.length < 2 || name.length > 20) return error(route, 422, 'INVALID_NAME')
+      playerName = name
+      return json(route, 200, { display_name: name })
+    }
 
     const isGuess = path === '/game/today/guesses'
     if (path === '/game/today/questions' || isGuess) {
