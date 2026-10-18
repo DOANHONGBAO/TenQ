@@ -73,13 +73,55 @@ def test_prefilter_penalizes_manipulation_and_open_questions(text: str) -> None:
         "Is it bigger than a car?",
         "Is it a fruit?",
         "Is the secret word apple?",
-        "Does it start with S?",
         "Is it used to show the time?",
         "Is it good?",
         "Would you find it outdoors?",
     ],
 )
 def test_prefilter_lets_genuine_questions_through(text: str) -> None:
+    assert prefilter(parse_question(text)) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Spelling instead of meaning (OQ-09)
+        "Does it start with S?",
+        "Does its name contain the letter T?",
+        "Does it end in an e?",
+        "Does it contain t?",
+        "Is there an e in it?",
+        "Does the word have more than 5 letters?",
+        "Is it longer than 6 characters?",
+        "Does it come before M alphabetically?",
+        "Is it before m in the dictionary?",
+        "Does it have two syllables?",
+        "Does it rhyme with cat?",
+        "Is it a noun?",
+        "Is the word plural?",
+        # One property per question (OQ-01)
+        "Is it red and big?",
+        "Is it a cat or a dog?",
+        "Is it red, big, or round?",
+        "Is it small but heavy?",
+        "Is it both alive and green?",
+        "Is it either a fruit or a vegetable?",
+        "Is it a cat/dog?",
+    ],
+)
+def test_prefilter_penalizes_spelling_and_compound_questions(text: str) -> None:
+    assert prefilter(parse_question(text)) is Answer.PENALTY
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Does it start with a bang?",
+        "Does it contain water?",
+        "Is it a character in a movie?",
+    ],
+)
+def test_word_form_rule_spares_ordinary_questions(text: str) -> None:
     assert prefilter(parse_question(text)) is None
 
 

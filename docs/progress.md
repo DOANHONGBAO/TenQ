@@ -7,6 +7,14 @@ Next: owner starts tailscaled, enables Funnel, fills production env files; then 
 
 ## Log
 
+### 2026-10-18 — Trick-question rules (`feat/question-rules`)
+
+- Owner decision: questions about the word's spelling (letters, length, alphabetical order, syllables, rhymes, part of speech) and questions with more than one property or candidate ("Is it red and big?", "Is it a cat or a dog?") are `PENALTY` and use one question. `requirements.md` OQ-01 and OQ-09 (now Accepted), ADR 0010 note.
+- `app/models/judge_rules.py`: deterministic `_WORD_FORM` and `_COMPOUND` checks in `prefilter` (no AI call). The judge prompt states the same rules as a backstop; `PROMPT_VERSION` 2026-10-18.1 (new cache keys).
+- Known trade-off: any "and"/"or"/comma is treated as compound, so "Is it black and white?" is also `PENALTY`. The rules panel tells players to ask one property at a time.
+- Hints rewritten by hand for all 365 words in the private `backend/secrets/words.json` (git-ignored; old file kept as `words.json.bak-2026-10-18`): vague, category, distinctive trait, near-definition with length and first letter. Checked with `hint_problems` and the seed schema. Word list unchanged, so the daily schedule and pinned days are unchanged; production needs a re-seed.
+- Verified locally with test Redis on :6390: `uv run pytest` 358 passed, `ruff check` and `ruff format --check` clean; frontend `npm test` 31 passed, `npm run lint` clean. No judge-eval question changes outcome.
+
 ### 2026-10-18 — Frontend focus fix (`fix/frontend-test-timeout`)
 
 - CI `frontend` failed on `main` after PR #11 ("unlocks one hint after every two tries"). Root cause from the CI DOM dump: the word typed into the guess box ended up in the question box. After an answer, `QuestionForm` returned focus to its input on the next animation frame, even if the player had already moved to the guess box. Real players could hit the same bug by clicking the guess box right after an answer.

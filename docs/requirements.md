@@ -43,7 +43,7 @@ The business requirements leave some behavior undefined. The design uses the def
 
 | ID | Topic | Proposed default | Status |
 |----|-------|------------------|--------|
-| OQ-01 | Meaning of `PENALTY` | The input passed format checks but is not a genuine yes/no question about the word: open questions ("What is it?"), several questions at once, requests to reveal, spell, or encode the word, or instructions aimed at the AI. | Proposed |
+| OQ-01 | Meaning of `PENALTY` | The input passed format checks but is not a genuine yes/no question about the word: open questions ("What is it?"), several questions at once, more than one property or candidate in one question ("Is it red and big?", "Is it a cat or a dog?"; owner decision 2026-10-18), requests to reveal, spell, or encode the word, or instructions aimed at the AI. | Proposed |
 | OQ-02 | Meaning of `IRRELEVANT` | A genuine yes/no question that cannot be meaningfully answered for the word (e.g. "Is today Monday?"). | Proposed |
 | OQ-03 | Meaning of `WIN` | The question explicitly guesses the secret word (exact word or simple plural, case-insensitive). The model's `WIN` is accepted only if the server confirms the word appears in the question; otherwise the result is treated as unvalidated (BR-09). | Proposed |
 | OQ-04 | Format rejection | Inputs failing deterministic checks (length 3 to 150 characters, printable ASCII, must end with `?`) are rejected with `INVALID_QUESTION` and do **not** consume a question. Non-English text that passes these checks is judged by the AI and normally yields `PENALTY`. | Proposed |
@@ -51,7 +51,7 @@ The business requirements leave some behavior undefined. The design uses the def
 | OQ-06 | "Start of play" | The server time when the player's first question of the day is submitted. | Proposed |
 | OQ-07 | Leaderboard entries | Only `WIN` games appear. Display names are auto-generated from the anonymous id (e.g. `Player-7F3A`); no free-text nicknames in v1. | Proposed |
 | OQ-08 | Reveal after the day | The word for a past date can be retrieved after that day ends (UTC). Losing players do not see the word earlier. | Proposed |
-| OQ-09 | Letter/length questions | Allowed, since they are yes/no questions ("Does it start with S?"). | Proposed |
+| OQ-09 | Letter/length questions | Not allowed (owner decision 2026-10-18): questions about the spelling of the word rather than the thing it names (letters, length, alphabetical order, syllables, rhymes, part of speech) are `PENALTY` and use one question. They allowed guessing by search instead of deduction. | Accepted |
 | OQ-10 | Session lifetime | Anonymous session cookie lasts 365 days; clearing cookies creates a new session (accepted limitation, see threat model T-07). | Proposed |
 | OQ-11 | Progressive hints | Requested by the owner (2026-10-17): every word has 4 prepared hints, hardest first, the last making the word unambiguous. One hint unlocks after every 2 charged attempts (after attempts 2, 4, 6, 8). The server returns only unlocked hints. | Accepted |
 | OQ-12 | Guess box | Requested by the owner (2026-10-17): a separate box for guessing the word directly. A guess is judged by exact comparison (word or simple plural, case-insensitive), not by the AI, and costs one of the 10 attempts; a wrong guess is recorded as `NO`, a repeated wrong guess is refused for free. Questions that name the word still win as before (OQ-03). | Accepted |
