@@ -15,7 +15,7 @@ main.tsx
          │  ├─ StatusBanner      notices (info / warning / error), dismissible
          │  ├─ loading card      while booting
          │  ├─ maintenance card  API unreachable or 502/503, auto-retry every 15 s
-         │  ├─ play column
+         │  ├─ bento grid (tiles placed with grid-template-areas)
          │  │  ├─ AttemptsMeter  10 indicators coloured by answer, "N of 10 questions left"
          │  │  ├─ QuestionForm   input (150 chars), Ask button, "Judging…" state, one-line rule tip
          │  │  ├─ Feedback       last answer in an aria-live region
@@ -23,7 +23,7 @@ main.tsx
          │  │  ├─ ResultPanel    win / lose screen, focus moves to it, spoiler-free share, add/change name
          │  │  ├─ HintsPanel     hints unlocked by the server (1 per 2 tries), next-hint counter
          │  │  └─ HistoryList    newest first, answer badges
-         │  └─ side column
+         │  └─ tile-side
          │     ├─ LeaderboardPanel  top 10, caller rank, refreshes every minute
          │     └─ YesterdayAnswer   reveals the previous day's word on demand (server allows it)
          ├─ PrivacyNotice    Turnstile invisible-mode disclosure, link to /privacy.html
@@ -61,6 +61,6 @@ main.tsx
 
 Skip link; labelled regions and form; `aria-live` feedback; `role=status`/`alert` banners; focus returns to the input after each answer and moves to the result heading when the game ends; visible focus outline; colour is never the only signal (badges have text, dots have titles and the count is written); `prefers-reduced-motion` disables animations; light and dark themes from `prefers-color-scheme`.
 
-## Visual design (2026-10-18)
+## Visual design (2026-10-18, revised)
 
-Playful flat 2.0: one bright theme, rounded "bubble" cards and pills, real squircles via `corner-shape: squircle` where supported (larger radii as a fallback elsewhere), clay depth from layered outer and inset shadows, chunky buttons with a ledge that squishes on press. Motion: staggered pop-in for cards, jelly feedback, popping attempt dots, floating background bubbles, chest wobble then open with coins and rotating rays, and a 3 s canvas confetti burst (no library). All animation is disabled under `prefers-reduced-motion`; the chest then opens at once and no confetti is drawn. Fonts are the system rounded stack, so no font is downloaded from a third party.
+Bento grid with an aurora mesh background and glossy "jelly" controls, crisp and minimal. Layout: one column on phones; from 700 px a 2-column bento (`meter`, `ask`, `guess | hints`, `history | side`); from 1040 px 3 columns with the leaderboard tile sticky on the right. Tiles are translucent white with a light blur and hairline border; the attempts tile uses a violet-pink-cyan mesh gradient with glossy bead dots. Buttons are gradient jelly with a top highlight, a shine sweep on hover, and a squish on press. Aurora colour fields drift slowly behind the page. Squircles via `corner-shape: squircle` where supported. All animation is disabled under `prefers-reduced-motion`; the chest then opens at once and no confetti is drawn. System fonts only (no third-party font download).

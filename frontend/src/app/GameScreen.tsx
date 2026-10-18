@@ -64,35 +64,35 @@ export function GameScreen({ client }: { client: Api }) {
         )}
 
         {game && (
-          <>
-            <div className="play-column">
-              <AttemptsMeter game={game} />
-              {isFinished(game) ? (
-                <ResultPanel
-                  game={game}
-                  playerName={playerName}
-                  onChooseName={() => {
-                    setDialog('name')
-                  }}
-                />
-              ) : (
-                <>
+          <div className={`bento ${isFinished(game) ? 'bento-done' : ''}`}>
+            <AttemptsMeter game={game} />
+            {isFinished(game) ? (
+              <ResultPanel
+                game={game}
+                playerName={playerName}
+                onChooseName={() => {
+                  setDialog('name')
+                }}
+              />
+            ) : (
+              <>
+                <div className="tile-ask">
                   <QuestionForm />
                   <Feedback last={state.lastAnswer} />
-                  <GuessForm />
-                </>
-              )}
-              <HintsPanel game={game} />
-              <HistoryList history={game.history} />
-            </div>
-            <aside className="side-column">
+                </div>
+                <GuessForm />
+              </>
+            )}
+            <HintsPanel game={game} />
+            <HistoryList history={game.history} />
+            <aside className="tile-side">
               <LeaderboardPanel
                 client={client}
                 trigger={`${game.game_date}:${game.status}:${playerName ?? ''}`}
               />
               <YesterdayAnswer key={game.game_date} client={client} gameDate={game.game_date} />
             </aside>
-          </>
+          </div>
         )}
       </main>
       <PrivacyNotice />
